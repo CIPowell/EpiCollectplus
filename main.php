@@ -8,7 +8,7 @@ $dat = new DateTime('now');
 
 $SITE_ROOT = '';
 $XML_VERSION = 1.0;
-$CODE_VERSION = "1.3";
+$CODE_VERSION = "1.4";
 
 if( !isset($PHP_UNIT) ) { $PHP_UNIT = false; }
 if( !$PHP_UNIT ){ @session_start(); }
@@ -3653,7 +3653,6 @@ $pageRules = array(
 		'create' => new PageRule(null, 'createFromXml', true),
 		'createProject.html' => new PageRule(null, 'createProject', true),
 		'projectHome.html' => new PageRule(null, 'projectHome'),
-
 		'createOrEditForm.html' => new PageRule(null ,'formBuilder', true),
 		'uploadProject' =>new PageRule(null, 'uploadProjectXML', true),
 		'getForm' => new PageRule(null, 'getXML',	 true),

@@ -33,27 +33,27 @@
 				$this->username = $cfg->settings["database"]["user"];
 				$this->password = $cfg->settings["database"]["password"];
 			}
-			$this->server = $cfg->settings["database"	]["server"];
+			$this->server = $cfg->settings["database"]["server"];
 			$this->schema = $cfg->settings["database"]["database"];;
 			$this->port = $cfg->settings["database"]["port"];
 			
 			if($this->server && $this->port && $this->schema && $this->username)
 			{
 				
-				$this->con = new mysqli($this->server, $this->username, $this->password, NULL,  $this->port);
+				$this->con = new PDO(sprintf('pgsql:dbname=%s;', $this->schema , $this->server, $this->port), $this->username, $this->password);
 				$this->connected = true;
-				echo $this->con->connect_error;
-				if ($this->con->connect_errno) { 
+				
+				//if ($this->con->connect_errno) { 
 					
-					$this->connected = false;
-					$this->errorCode = $this->con->connect_errno;
-					return;
-				}
+				//	$this->connected = false;
+					//$this->errorCode = $this->con->connect_errno;
+				//	return;
+				//}
 				
 				
-				$this->con->set_charset('utf-8');
+				//$this->con->set_charset('utf-8');
 				try{
-					$this->con->select_db($this->schema);
+					//$this->con->select_db($this->schema);
 				}catch(Exception $e){}
 			}
 			else
@@ -64,57 +64,37 @@
 		
 		public function __destruct()
 		{
-			if($this->connected) $this->con->close();
+			//$this->resSet->closePointer();
+                        //if($this->connected) $this->con->close();
 		}
 		
 		public function boolVal($val) {return $val && $val !== "false" ? "1" : "0";}
 		public function boolVal2($val) {return $val === false || $val === "false" || $val == 0 ? "0" : "1";}
-		public function stringVal($val) {return $val == "" ? "NULL" : "'". mysqli_escape_string($this->con, $val) . "'";}
+		public function stringVal($val) {return $val == "" ? "NULL" : "'". $this->con->quote($val) . "'";}
 		public function numVal($val) {return !$val && $val !== 0 && $val !== 0.0 ? "NULL" : "$val";}
-		public function unescape($val) {return stripcslashes($val); }
+		public function unescape($val) {return $this->con->quote($val); }
 		
 		public function beginTransaction()
 		{
-			//if($this->con->query("START TRANSACTION;"))
-			//{
-				return true;
-			//}
-			//else
-			//{
-			//	return "START TRANSACTION;\r\n" . $this->con->errno . " : " . $this->con->error;
-			//}
+                    $this->con->beginTransaction();
+                    return true;
 		}
 		
 		public function commitTransaction()
 		{
-			//if($this->con->query("COMMIT;"))
-			//{
-				return true;
-			//}
-			//else
-			//{
-			//	return "COMMIT;\r\n" . $this->con->errno . " : " .$this->con->error;
-			//}
+			$this->con->commit();
+                        return true;
 		}
 		
 		public function rollbackTransaction()
 		{
-			//if($this->con->query( "ROLLBACK;"))
-			//{
-				return true;
-			//}
-			//else
-			//{
-				return "ROLLBACK;\r\n" . $this->con->errno . " : " .$this->con->error;
-			//}
+			$this->rollbackTransaction();
+			return true;
 		}
 		
 		public function free_result()
 		{
-			/*$this->resSet->free();
-			while( $this->con->more_results() ) { 
-				$this->resSet = $this->con->next_result(); $this->resSet->close();
-			}*/
+			unset($this->resSet);
 		}
 		
 		public function affectedRows()
@@ -124,7 +104,7 @@
 		
 		public function escapeArg($arg)
 		{
-			return $this->con->escape_string($arg);
+			return $this->con->quote($arg);
 		}
 		
 		public function do_query($qry)
@@ -132,20 +112,21 @@
 			
 			if($this->connected)
 			{
-				if($this->resSet && !is_bool($this->resSet)) mysqli_free_result($this->resSet);
+				//if($this->resSet && !is_bool($this->resSet)) mysqli_free_result($this->resSet);
 				$this->resSet = $this->con->query($qry);
-				$this->numRows = $this->con->affected_rows;
+				
 				
 				if($this->resSet)
 				{
+                                        $this->numRows = $this->resSet->rowCount();
 					$this->lastQuery = $qry;
-					$this->lastId = $this->con->insert_id;
+					$this->lastId = $this->con->lastInsertId();
 					return true;
 				}
 				else
 				{
 					//echo $qry .  "\r\n" . mysqli_errno($this->con) . " : " . mysqli_error($this->con);
-					return $qry .  "\r\n" . $this->con->errno. " : " .$this->con->error;
+					return $qry .  "\r\n" . $this->con->errorCode(). " : " . implode('\r\n', $this->con->errorInfo());
 				}
 			}
 			else
@@ -159,8 +140,8 @@
 		{
 			if($this->connected)
 			{
-				if($this->resSet && !is_bool($this->resSet)) mysqli_free_result($this->resSet);
-				$res = $this->con->multi_query($qry);
+				//if($this->resSet && !is_bool($this->resSet)) mysqli_free_result($this->resSet);
+				$res = $this->con->query($qry);
 				
 				if($res) 
 				{
@@ -171,7 +152,7 @@
 				else
 				{
 					//echo $qry .  "\r\n" . mysqli_errno($this->con) . " : " . mysqli_error($this->con);
-					return $qry .  "\r\n" . $this->con->errno . " : " .$this->con->error;
+					return $qry .  "\r\n" . $this->con->errorCode . " : " .$this->con->errorInfo();
 				}
 			}
 			else
@@ -182,9 +163,9 @@
 		
 		public function getLastResultSet()
 		{
-			$this->resSet = $this->con->store_result() ;
-			while( $this->con->more_results() && $this->con->next_result()) {
-				$this->resSet = $this->con->store_result() ;
+			//$this->resSet = $this->con->store_result() ;
+			while($this->resSet->nextRowSet()) {
+				//$this->resSet = $this->con->store_result() ;
 			}
 			return true;
 		}
@@ -198,7 +179,7 @@
 				{
 					//$args[$i] = mysqli_escape_string($this->con, $args[$i]);
 					
-					if((is_string($args[$i]))){ $args[$i] = "'".str_replace("'", "\\\\'",$this->con->escape_string($args[$i]))."'"; }
+					if((is_string($args[$i]))){ $args[$i] = $this->escapeArg($args[$i]); }
 					
 					else if(!$args[$i]){
 						if(is_int($args[$i]) || is_double($args[$i]) || is_bool($args[$i])) $args[$i] = "0";
@@ -215,7 +196,7 @@
 				}
 				else
 				{
-					return $qry . "\r\n" .$this->con->errno . " : " . $this->con->error;
+					return $qry . "\r\n" .$this->con->errorCode() . " : " . implode('\r\n', $this->con->errorInfo());
 				}
 			}
 			else
@@ -226,12 +207,12 @@
 		
 		public function get_row_array()
 		{
-			return $this->resSet->fetch_assoc();
+			return $this->resSet->fetch();
 		}
 		
 		public function get_row_object()
 		{
-			return $this->resSet->fetch_object();
+			return $this->resSet->fetch(PDO::FETCH_OBJ);
 		}
 		
 		public function last_id()
