@@ -3,8 +3,8 @@
 	<head>
 
 		{#style#}
-		<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/EpiCollectPlus.css" />
-		<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/jquery-ui-1.8.17.custom.css" />
+		<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/main.css" />
+		<!--<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/jquery-ui-1.8.17.custom.css" />-->
 		<script type="text/javascript" >var SITE_ROOT = '{#SITE_ROOT#}';</script>
 		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery-debug.js"></script>
 		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery-ui.min.js"></script>
@@ -21,32 +21,44 @@
 		<title>EpiCollect+</title>
 	</head>
 	<body>
-		<div id="pageHead">
-			<a href="{#SITE_ROOT#}/"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /></a><span class="beta-tag">Beta</span>
-			<div id="nav"> 
-				<!-- <a href="{#SITE_ROOT#}/index.html">Home</a> -->
-							<a href="{#SITE_ROOT#}/createProject.html">Create Project</a>
-				<a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a>
+            <header class="container">
+                <div class="row">
+                    <div id="logo" class="span4">
+                            <a href="{#SITE_ROOT#}/"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /></a><span class="beta-tag">Beta</span>
+                    </div>  
 
-				<a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  
-				<!-- <a href="{#SITE_ROOT#}/instructions/HANDSETS.html">Handsets</a> 
-				<a href="{#SITE_ROOT#}/instructions/FAQ.html">FAQ</a>  
-				<a href="{#SITE_ROOT#}/instructions/developers.html">Developers</a>   
-				<a href="{#SITE_ROOT#}/instructions/ABOUTUS.html">About us</a>-->
-			</div> 
-		</div>
-		<div id="breadcrumbs"><div id="loginStatus">
-			{#loggedIn#}
-		</div><a href="{#SITE_ROOT#}/">Home</a>{#breadcrumbs#}</div>
-		
-		<div id="main">
+                    <section id="login-status" class="span8">	
+                        {#loggedIn#}
+                    </section>
+                </div>
+		<!--<div id="breadcrumbs"><a href="{#SITE_ROOT#}/">Home</a>{#breadcrumbs#}</div>-->
+            </header>
+          
+            
+            
+		<section id="main" class="container">
+                      <div class="navbar navbar-fixed">
+                        <div class="navbar-inner">
+                                <ul class="nav">
+
+                                    <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
+                                    <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
+
+                                    <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
+
+                                </ul>
+
+                        </div>
+                    </div> 
 			{#main#}
-		</div>
-		<div id="foot"> 
-			<span class="leftie">Version {#codeVersion#} - EpiCollect+ is developed at <a href="http://www.imperial.ac.uk" target="_blank">Imperial College London</a> | <a href="mailto:d.aanensen@imperial.ac.uk">Contact us </a></span>
-			<span class="rightie"><a href="http://github.com/ImperialCollectLondon/EpiCollectPlus"  target="__blank"><img src="{#SITE_ROOT#}/images/googleCode.png" style="vertical-align:middle" alt="Visit EpiCollect on Google Code" width="27" height = "27" /></a>
-				<a href="http://www.twitter.com/epicollect" target="__blank"><img src="http://twitter-badges.s3.amazonaws.com/follow_us-b.png" alt="Follow EpiCollect on Twitter" style="vertical-align:middle" width="160" height="27"/></a></span>
-		</div>
+		</section>
+		<footer class="container"> 
+                    <div class="row">
+			<span class="span6">Version {#codeVersion#} - EpiCollect+ is developed at <a href="http://www.imperial.ac.uk" target="_blank">Imperial College London</a> | <a href="mailto:d.aanensen@imperial.ac.uk">Contact us </a></span>
+			<span class="span6 right"><a href="http://github.com/ImperialCollectLondon/EpiCollectPlus"  target="__blank"> <span class="icon-folder-open" ></span> Github</a>
+                             <a href="http://www.twitter.com/epicollect" target="__blank"> <span class="icon-comment"> </span> Twitter</a></span>
+                    </div>
+		</footer>
 		<script type="text/javascript">
 
 			  var _gaq = _gaq || [];
