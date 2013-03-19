@@ -1,5 +1,5 @@
 {{style}}
-		<link rel="stylesheet" type="text/css" href="../EpiSkins.css" />
+		<!--<link rel="stylesheet" type="text/css" href="../EpiSkins.css" />
 		<style type="text/css">
 			body
 			{
@@ -94,29 +94,27 @@
 				margin : 1em;
 			}
 			
-		</style>
+		</style>-->
 {{/style}}
 {{script}}				
-		<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+		<!--<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
 		<script type="text/javascript" src="../js/formBuilder.js"></script>
 		<script type="text/javascript" src="{#SITE_ROOT#}/js/gpsPicker.js"></script>
 		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery.controlgroup.js"></script>
 		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery.settingspanel.js"></script>
-		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery.mediainput.js"></script>
+		<script type="text/javascript" src="{#SITE_ROOT#}/js/jquery.mediainput.js"></script>-->
 {{/script}}
 {{breadcrumbs}}
 &gt; <a href="../{#projectName#}">Project : {#projectName#}</a> &gt; Form Builder
 {{/breadcrumbs}}
 {{main}}
 	<h1>Form Builder</h1>
-	<div id="toolbox">
-		<div id="toolbox-inner">
-			<a href="javascript:saveProject()" class="button">Save Project</a>
-			<a href="javascript:project.forms[currentForm.name].displayForm({ debug : true });" class="button">Preview Form</a>
-			<a href="javascript:renameForm(currentForm.name);" class="button">Rename Form</a>
-			<a href="javascript:removeForm(currentForm.name);" class="button">Delete Form</a>
-		</div>
-	</div>
+	<div id="btn-toolbar"  data-spy="affix" data-offset-top="200">
+                <a href="javascript:saveProject()" class="button">Save Project</a>
+                <a href="javascript:project.forms[currentForm.name].displayForm({ debug : true });" class="button">Preview Form</a>
+                <a href="javascript:renameForm(currentForm.name);" class="button">Rename Form</a>
+                <a href="javascript:removeForm(currentForm.name);" class="button">Delete Form</a>
+        </div>
 	<div id="formList">
 			<h4 class="label">Select a form to edit: </h4>
 			<span class="form">First_Form</span><span class="control">Add a new form</span>
@@ -126,69 +124,69 @@
 		<div id="source" class="column first">
       		<h3><a href="#">Basic inputs</a></h3>
       		<div>
-	      		<div class="ecplus-form-element ecplus-text-element" type="text">
-	      			<p class="title">Text</p> 
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-numeric-element" type="numeric">
-	      			<p class="title">Numeric</p> 
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-date-element" type="date">
-	      			<p class="title">Date</p> 
-	       			
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-time-element" type="time">
-	      			<p class="title">Time</p> 
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-select1-element" type="select1">
-	      			<p class="title">Drop-down list</p> 
-	      			<p class="option">Option One</p>
-	      			<p class="option">Option Two</p>
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-radio-element" type="radio">
-	      			<p class="title">Radio Buttons</p> 
-	      			<p class="option">Option One</p>
-	      			<p class="option">Option Two</p>
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-select-element" type="select">
-	      			<p class="title">Check boxes</p> 
-	      			<p class="option">Option One</p>
-	      			<p class="option">Option Two</p>
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-textarea-element" type="textarea">
-	      			<p class="title">Multi-line Text</p> 
-	      		</div>
+                    <div class="ecplus-form-element ecplus-text-element" type="text">
+                            <p class="title">Text</p> 
+                    </div>
+                    <div class="ecplus-form-element ecplus-numeric-element" type="numeric">
+                            <p class="title">Numeric</p> 
+                    </div>
+                    <div class="ecplus-form-element ecplus-date-element" type="date">
+                            <p class="title">Date</p> 
+
+                    </div>
+                    <div class="ecplus-form-element ecplus-time-element" type="time">
+                            <p class="title">Time</p> 
+                    </div>
+                    <div class="ecplus-form-element ecplus-select1-element" type="select1">
+                            <p class="title">Drop-down list</p> 
+                            <p class="option">Option One</p>
+                            <p class="option">Option Two</p>
+                    </div>
+                    <div class="ecplus-form-element ecplus-radio-element" type="radio">
+                            <p class="title">Radio Buttons</p> 
+                            <p class="option">Option One</p>
+                            <p class="option">Option Two</p>
+                    </div>
+                    <div class="ecplus-form-element ecplus-select-element" type="select">
+                            <p class="title">Check boxes</p> 
+                            <p class="option">Option One</p>
+                            <p class="option">Option Two</p>
+                    </div>
+                    <div class="ecplus-form-element ecplus-textarea-element" type="textarea">
+                            <p class="title">Multi-line Text</p> 
+                    </div>
 	      	</div>
 	      	<h3><a href="#">Media inputs</a></h3>
       		<div>
-	      		<div class="ecplus-form-element ecplus-location-element" type="location">
-	      			<p class="title">Location</p> 
-	      			
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-photo-element" type="photo">
-	      			<p class="title">Photograph</p> 
-	      			
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-video-element" type="video">
-	      			<p class="title">Video</p> 
-	      			
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-audio-element" type="audio">
-	      			<p class="title">Audio</p> 
-	      			
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-barcode-element" type="barcode">
-	      			<p class="title">Barcode</p> 
-	      			
-	      		</div>
+                    <div class="ecplus-form-element ecplus-location-element" type="location">
+                            <p class="title">Location</p> 
+
+                    </div>
+                    <div class="ecplus-form-element ecplus-photo-element" type="photo">
+                            <p class="title">Photograph</p> 
+
+                    </div>
+                    <div class="ecplus-form-element ecplus-video-element" type="video">
+                            <p class="title">Video</p> 
+
+                    </div>
+                    <div class="ecplus-form-element ecplus-audio-element" type="audio">
+                            <p class="title">Audio</p> 
+
+                    </div>
+                    <div class="ecplus-form-element ecplus-barcode-element" type="barcode">
+                            <p class="title">Barcode</p> 
+
+                    </div>
       		</div>
       		<h3><a href="#">Links with other forms</a></h3>
-			<div>
-				<div class="ecplus-form-element ecplus-fk-element" type="fk">
-	      			<p class="title">Link from another form</p> 
-	      		</div>
-	      		<div class="ecplus-form-element ecplus-branch-element" type="branch">
-      				<p class="title">Branch Form</p> 
-      			</div>
+                    <div>
+                            <div class="ecplus-form-element ecplus-fk-element" type="fk">
+                            <p class="title">Link from another form</p> 
+                    </div>
+                    <div class="ecplus-form-element ecplus-branch-element" type="branch">
+                            <p class="title">Branch Form</p> 
+                    </div>
       		</div>
     	</div> <!--source-->
 	    <div id="middle" class="column second">

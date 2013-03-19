@@ -16,6 +16,7 @@ header
 #login-status 
 {   
     text-align : right;
+    padding-top : 1em;
 
     a
     {
@@ -28,4 +29,69 @@ header
 {
     text-align : right;
 }
+
+body
+{
+    margin-top: 3.5em;
+}
+
+#logo
+{   
+    position : relative;
+}
+
+.beta-tag {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #a54df9;
+    position: absolute;
+    left: 10em;
+    bottom: -0.5em;
+    z-index: 5;
+}
+
+.ecplus-projectlist, .ecplus-userprojects{
+    h1
+    {
+        padding : @paddingSmall;
+        /*border-radius: @baseBorderRadius;*/
+        border-bottom: 2px solid @navbarBorder;
+        /*background-color : @navbarBackground;*/
+        /*color: @white;*/
+    }
+
+    div.project
+    {
+        font-size: 14pt;
+        font-weight: bold;
+        margin: 1em 0 0 0.5em;
+        border-left: 20px solid @navbarBorder;
+        border-top : 1px solid @navbarBorder;
+        border-bottom : 1px solid @navbarBorder;
+        border-top-left-radius : @borderRadiusLarge;
+        border-bottom-left-radius : @borderRadiusLarge;
+        padding : @paddingSmall;
+
+    }   
+
+
+    .total
+    {
+            color: #888888;
+            font-size : 10pt;
+            margin: 0 0 0 1em;
+    }
+}
+
+msg 
+{
+    .alert;
+    .alert-info;
+}
+
+.button
+{
+    .btn;
+}
+		
 

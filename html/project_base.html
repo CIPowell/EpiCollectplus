@@ -4,10 +4,8 @@
 
 		{#style#}
 		<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/main.css" />
-		<!--<link rel="stylesheet" type="text/css" href="{#SITE_ROOT#}/css/jquery-ui-1.8.17.custom.css" />-->
 		<script type="text/javascript" >var SITE_ROOT = '{#SITE_ROOT#}';</script>
-		<script type="text/javascript" src="js/require-jquery.js"  data-main="js/starter.js"></script>
-		
+		<script type="text/javascript" src="{#SITE_ROOT#}/js/require-jquery.js"  data-main="{#SITE_ROOT#}/js/starter.js"></script>
 			
 		{#script#}
 		
@@ -37,16 +35,18 @@
                       <div class="navbar navbar-fixed">
                         <div class="navbar-inner">
                                 <ul class="nav">
-
                                     <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
                                     <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
-
                                     <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
-
                                 </ul>
-
                         </div>
                     </div> 
+                    <ul class="nav nav-pills">
+                        <li class="active"><a href="">Home</a></li>
+                        <li><a href="./{#projectName#}/formBuilder">Form Builder</a></li>
+                        <li><a href="./{#projectName#}/manage">Manage Project </a></li>
+                        <li><a href="./{#projectName#}.xml">Show XML</a> </li>
+                    </ul>
 			{#main#}
 		</section>
 		<footer class="container"> 

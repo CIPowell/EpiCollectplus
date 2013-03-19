@@ -754,7 +754,7 @@ class EcProject{
 			return $projects;
 		}
 		
-		public static function getUserProjects($uid, $fmt = 'json')
+		public static function getUserProjects($uid)
 		{
 			global $db;
 			
@@ -764,10 +764,10 @@ class EcProject{
 			if($res === true)
 			{
 				while($arr = $db->get_row_array())
-				{       if($arr['listed'] === '1')
+				{      /* if($arr['listed'] === '1')
                                         {
                                             continue;
-                                        }
+                                        }*/
 					//if($json != '[') $json .= ',';
 					//$json .= sprintf('{ "name" : "%s", "total" : %s, "last24" : %s }', $arr['name'], $arr['ttl'], $arr['ttl24']);
 					$arr['listed'] = ( $arr['listed'] === '1' ? 'public' : 'private' );

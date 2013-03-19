@@ -40,7 +40,7 @@
 			if($this->server && $this->port && $this->schema && $this->username)
 			{
 				
-				$this->con = new PDO(sprintf('pgsql:dbname=%s;', $this->schema , $this->server, $this->port), $this->username, $this->password);
+				$this->con = new PDO(sprintf('mysql:dbname=%s;host=%s;port=%s ', $this->schema , $this->server, $this->port), $this->username, $this->password);
 				$this->connected = true;
 				
 				//if ($this->con->connect_errno) { 

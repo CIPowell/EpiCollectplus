@@ -207,7 +207,7 @@
 			$this->data = " \"auth\" : \"$enc_data\" ";
 	
                         
-                        $res = $this->db->do_query("SELECT idUsers, email FROM user WHERE email = '$username' AND details LIKE '%{$this->data}%';");
+                        $res = $this->db->do_query("SELECT idUsers, email FROM user WHERE email = $username AND details LIKE '%{$this->data}%';");
 			if($res !== true) die("!!!$res");
 			
 			if($arr = $this->db->get_row_array())
