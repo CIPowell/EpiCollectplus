@@ -8,6 +8,12 @@ date_default_timezone_set('UTC');
 
 class EpiCollectWebApp 
 {
+    
+    private $site_root = '';
+    public static $XML_VERSION = 1.0;
+    public static $CODE_VERSION = "1.4";
+    
+    
     /**
      * Tell the App not to prevent caching of the page
      */
@@ -111,8 +117,6 @@ class EpiCollectWebApp
 }
 
 $SITE_ROOT = '';
-$XML_VERSION = 1.0;
-$CODE_VERSION = "1.4";
 
 if( !isset($PHP_UNIT) ) { $PHP_UNIT = false; }
 if( !$PHP_UNIT ){ @session_start(); }
@@ -1882,7 +1886,7 @@ function formHandler()
 			}
 			catch(Exception $e)
 			{
-                            EpiCollectWebApp::BadRequest('CONFLICT')
+                            EpiCollectWebApp::BadRequest('CONFLICT');
 				echo $e->getMessage();
 			}
 		}
@@ -1983,7 +1987,7 @@ function formHandler()
 				return;
 
 			case "csv":
-				EpiCollectWebApp::ContentType('csv')
+				EpiCollectWebApp::ContentType('csv');
 				//
 				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
 				$filename = sprintf('ec/uploads/%s_%s_%s%s.csv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
@@ -2218,13 +2222,13 @@ function formHandler()
 				}
 			
 				global $SITE_ROOT;
-				EpiCollectWebApp::ContentType('tsv')
+				EpiCollectWebApp::ContentType('tsv');
 				EpiCollectWebApp::Redirect(sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
 			case "js" :
 				global $SITE_ROOT;
 					
 				$files = array("./Ext/ext-base.js", "./Ext/ext-all.js", "./js/EpiCollect2.js");
-				EpiCollectWebApp::ContentType('js')
+				EpiCollectWebApp::ContentType('js');
 				
 				echo packFiles($files);
 				echo "var survey;
@@ -2411,7 +2415,7 @@ function entryHandler()
 	{
 		if($permissionLevel < 2)
 		{
-			EpiCollectWebApp::Denied('delete entries on this project')	
+			EpiCollectWebApp::Denied('delete entries on this project');
 			return;
 		}
 		
@@ -2425,7 +2429,7 @@ function entryHandler()
 			{
 				if(preg_match("/^Message\s?:/", $e->getMessage()))
 				{
-                                    EpiCollectWebApp::BadRequest('conflict')
+                                    EpiCollectWebApp::BadRequest('conflict');
 				}
 				else
 				{
@@ -3271,7 +3275,7 @@ function getControlTypes()
 			array_push($arr, $a);
 		}
 			
-		EpiCollectWebApp::ContentType('json')
+		EpiCollectWebApp::ContentType('json');
 		echo json_encode(array("controlTypes" => $arr));
 	}
 }
@@ -3445,7 +3449,7 @@ function getImage()
 	
 	$picName = getValIfExists($_GET, 'img');
 	
-	EpiCollectWebApp::ContentType('jpeg')
+	EpiCollectWebApp::ContentType('jpeg');
 	
 	if($picName)
 	{
