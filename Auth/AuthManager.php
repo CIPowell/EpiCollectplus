@@ -105,11 +105,11 @@
   			$server = trim($_SERVER["HTTP_HOST"], "/");
   			$root = trim($SITE_ROOT, "/");
   			$frm =  "<p>Please Choose a Method to login</p>";
-  			if($this->localEnabled)$frm .= "<div class=\"provider epicollect\"><h3>EpiCollect Account</h3>" .  $this->providers["LOCAL"]->requestLogin("http://{$_SERVER['HTTP_HOST']}{$SITE_ROOT}/" . trim($requestedUrl, '/'), !$hasManagers) . "</div>";
-  			if($this->openIdEnabled) $frm .= "<div class=\"provider google\"><h3>Google/Gmail</h3><a class=\"btn\" href=\"http://$server/$root/$url?provider=OPENID\">Google/Gmail account (OpenID)</a></div>";
+  			if($this->localEnabled)$frm .= "<div class=\"login-provider epicollect\"><h3>EpiCollect Account</h3>" .  $this->providers["LOCAL"]->requestLogin("http://{$_SERVER['HTTP_HOST']}{$SITE_ROOT}/" . trim($requestedUrl, '/'), !$hasManagers) . "</div>";
+  			if($this->openIdEnabled) $frm .= "<div class=\"login-provider google\"><h3>Google/Gmail</h3><a class=\"btn\" href=\"http://$server/$root/$url?provider=OPENID\">Google/Gmail account (OpenID)</a></div>";
 			if($this->ldapEnabled && array_key_exists("ldap_domain", $cfg->settings["security"]) && $cfg->settings["security"]["ldap_domain"] != "")
 			{
-					$frm .= "<a class=\"provider\" href=\"http://$server/$root/$url?provider=LDAP\">Windows Account ({$cfg->settings["security"]["ldap_domain"]})</a>";
+					$frm .= "<a class=\"login-provider\" href=\"http://$server/$root/$url?provider=LDAP\">Windows Account ({$cfg->settings["security"]["ldap_domain"]})</a>";
 			}
 			return $frm;
   		}

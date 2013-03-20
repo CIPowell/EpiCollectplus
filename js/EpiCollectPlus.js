@@ -1,4 +1,4 @@
-define( ['jquery.min', 'checkurl'], function(ig, URLChecker){
+define( ['jquery.min', 'checkurl', 'bootstrap-collapse'], function(ig, URLChecker, no){
   
     var map;
     var completed;
