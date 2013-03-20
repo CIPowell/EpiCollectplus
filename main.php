@@ -3,8 +3,112 @@
 if (isset($_REQUEST['_SESSION'])) throw new Exception('Bad client request');
 
 date_default_timezone_set('UTC');
-$dat = new DateTime('now');
+//$dat = new DateTime('now');
 //$dfmat = '%s.u';
+
+class EpiCollectWebApp 
+{
+    /**
+     * Tell the App not to prevent caching of the page
+     */
+    static function DoNotCache()
+    {
+        header('Cache-Control: no-cache, must-revalidate');
+    }
+    
+    /**
+     * Tell the app to cache the response for $secs seconds.
+     * @param int $secs
+     */
+    static function CacheForm($secs)
+    {
+        if(!is_numeric($secs)) throw new Exception ("Expiry must be an integer");
+        header(sprintf('Cache-Control: public; max-age=%s;', $secs));
+    }
+    
+    /**
+     * sent the user to the specified URL
+     * @param string $url
+     */
+    static function Redirect($url)
+    {
+        header(sprintf('location: %s', $url));
+    }
+    
+    static function NotFound($location)
+    {
+        header("HTTP/1.1 404 NOT FOUND", true, 404);
+        $vals = array('error' => sprintf('%s could not be found', $location));
+        echo applyTemplate('base.html','./404.html', $vals);
+    }
+    
+    static function Denied($location)
+    {
+        global $SITE_ROOT;
+        header("HTTP/1.1 403 Access Denied", true, 403);
+        flash(sprintf('You do not have access to %s', $location));
+        EpiCollectWebApp::Redirect($SITE_ROOT);
+    }
+    
+    static function OK()
+    {
+        header('HTTP/1.1 200 OK', true, 200);
+    }
+    
+    static function Fail()
+    {
+        header('HTTP/1.1 500 OK', true, 500);
+    }
+    
+    static function BadRequest($msg = 'Bad Request')
+    {
+        header(sprintf('HTTP/1.1 405 %s', $msg));
+    }
+    
+    static function ContentType($type)
+    {
+        header(sprintf('Content-type: %s;', EpiCollectWebApp::mimeType($type)));
+    }
+    
+    private static function mimeType($f)
+    {
+            $mimeTypes = array(
+                'ico' => 'image/x-icon',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'jpg' => 'image/jpeg',
+                'css' => 'text/css',
+                'html' => 'text/html',
+                'js' => 'text/javascript',
+                'json' => 'text/javascript',
+                'xml' => 'text/xml',
+                'php' => 'text/html',
+                'mp4' => 'video/mp4',
+                'csv' => 'text/csv',
+                'svg' => 'image/svg+xml',
+                'zip' => 'application/zip',
+                'kml' => 'application/vnd.google-earth.kml+xml'
+            );
+
+            if(stristr($f, '.') !== false)
+            {
+                $f = preg_replace('/\?.*$/', '', $f);
+                $ext = substr($f, strrpos($f, '.') +1);
+            }
+            else
+            {
+                $ext = $f;
+            }
+            if(array_key_exists($ext, $mimeTypes))
+            {
+                    return $mimeTypes[$ext];
+            }
+            else
+            {
+                    return 'text/plain';
+            }
+    }
+}
 
 $SITE_ROOT = '';
 $XML_VERSION = 1.0;
@@ -168,13 +272,7 @@ function redirectTo($url)
     global $SITE_ROOT;
     $server = $_SERVER['HTTP_HOST'];
     $root = trim($SITE_ROOT, '/');
-    header(sprintf('location: http://%s%s/', $server, $root != '' ? ('/' .$root) : ''));
-}
-
-function accessDenied($location)
-{
-    flash(sprintf('You do not have access to %s', $location));
-    echo redirectTo("");
+    EpiCollectWebApp::Redirect(sprintf('http://%s%s/', $server, $root != '' ? ('/' .$root) : ''));
 }
 
 function setupDB()
@@ -215,7 +313,7 @@ function setupDB()
 	}
 	
 	flash('Please sign in to register as the first administartor of this server.');
-	header(sprintf('location: http://%s%s/login.php' , $_SERVER['HTTP_HOST'], $SITE_ROOT));
+	EpiCollectWebApp::Redirect(sprintf('http://%s%s/login.php' , $_SERVER['HTTP_HOST'], $SITE_ROOT));
 	return;
 }
 
@@ -332,10 +430,10 @@ function applyTemplate($baseUri, $targetUri = false, $templateVars = array())
 		}
 		else
 		{
-			$sections['script'] = '';
-			$sections['main'] = '<h1>404 - page not found</h1>
-				<p>Sorry, the page you were looking for could not be found.</p>';
-			header('HTTP/1.1 404 Page not found');
+			//$sections['script'] = '';
+			//$sections['main'] = '<h1>404 - page not found</h1>
+			//	<p>Sorry, the page you were looking for could not be found.</p>';
+			EpiCollectWebApp::NotFound("The Page you were looking for ");
 		}
 		foreach(array_keys($sections) as $sec)
 		{
@@ -409,34 +507,7 @@ function formDataLastUpdated()
         return;
 }
 
-function mimeType($f)
-{
-	$mimeTypes = array(
-			'ico' => 'image/x-icon',
-			'png' => 'image/png',
-			'gif' => 'image/gif',
-			'jpg' => 'image/jpeg',
-			'css' => 'text/css',
-			'html' => 'text/html',
-			'js' => 'text/javascript',
-			'json' => 'text/javascript',
-			'xml' => 'text/xml',
-			'php' => 'text/html',
-			'mp4' => 'video/mp4',
-			'csv' => 'text/csv'
-	);
 
-	$f = preg_replace('/\?.*$/', '', $f);
-	$ext = substr($f, strrpos($f, '.') +1);
-	if(array_key_exists($ext, $mimeTypes))
-	{
-		return $mimeTypes[$ext];
-	}
-	else
-	{
-		return 'text/plain';
-	}
-}
 
 /* end of class and function definitions */
 
@@ -445,7 +516,7 @@ function mimeType($f)
 function defaultHandler()
 {
 	global $url;
-	header(sprintf('Content-type: $s', mimeType($url)));
+	EpiCollectWebApp::ContentType(mimeType($url));
 	echo applyTemplate('base.html', "./" . $url);
 }
 
@@ -458,12 +529,12 @@ function createAccount()
         {
             createUser();
             flash("Account created, please log in.");
-            header(sprintf('location: http://%s/%s/login.php', $server, $root));
+            EpiCollectWebApp::Redirect(sprintf('http://%s/%s/login.php', $server, $root));
         }
         else
         {
             flash("This server is not public", "err");
-            header(sprintf('location: http://%s/%s/', $server, $root));
+            EpiCollectWebApp::Redirect(sprintf('http://%s/%s/', $server, $root));
         }   
     } else {
         global $auth;
@@ -478,7 +549,7 @@ function createAccount()
 function loginHandler()
 {
 	$cb_url='';
-	header('Cache-Control: no-cache, must-revalidate');
+	EpiCollectWebApp::DoNotCache();
 
 	global $auth, $url, $db;
 	
@@ -509,7 +580,7 @@ function loginHandler()
 
 function loginCallback()
 {
-	header('Cache-Control: no-cache, must-revalidate');
+    EpiCollectWebApp::DoNotCache();
      
 	global $auth, $cfg, $db;
         $provider = getValIfExists($_POST, 'provider');
@@ -526,7 +597,7 @@ function loginCallback()
 
 function logoutHandler()
 {
-	header('Cache-Control: no-cache, must-revalidate');
+    EpiCollectWebApp::DoNotCache();
 
 	global $auth, $SITE_ROOT;
 	$server = trim($_SERVER['HTTP_HOST'], '/');
@@ -534,7 +605,7 @@ function logoutHandler()
 	if($auth)
 	{
 		$auth->logout();
-		header(sprintf('location: http://%s/%s/', $server, $root));
+		EpiCollectWebApp::Redirect(sprintf('http://%s/%s/', $server, $root));
 		return;
 	}
 	else
@@ -658,7 +729,7 @@ function projectHome()
 	else if( !$prj->isPublic && $role < 2 && !preg_match('/\.xml$/',$url) )
 	{
 		flash(sprintf('You do not have permission to view %s.', $prj->name));
-		header(sprintf('location: http://%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT));
+		EpiCollectWebApp::Redirect(sprintf('http://%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT));
 		return;
 	}
 	
@@ -705,39 +776,37 @@ function projectHome()
 			$res = $prj->deleteProject();
 			if( $res === true )
 			{
-				header('HTTP/1.1 200 OK', true, 200);
-				echo '{ "success": true }';
-				return;
+                            EpiCollectWebApp::OK();
+                            echo '{ "success": true }';
+                            return;
 			}
 			else
 			{
-				header('HTTP/1.1 500 Error', true, 500);
-				echo ' {"success" : false, "message" : "Could not delete project" }';
+                            EpiCollectWebApp::Fail();
+                            echo ' {"success" : false, "message" : "Could not delete project" }';
 			}
 		}
 		else
 		{
-			header('HTTP/1.1 403 Forbidden', true, 403);
-			echo ' {"success" : false, "message" : "You do not have permission to delete this project" }';
+                    EpiCollectWebApp::Denied(" delete this project");
+                    echo ' {"success" : false, "message" : "You do not have permission to delete this project" }';
 		}
 		
 	}
 	elseif( $reqType == 'GET' )
 	{
-	
+            EpiCollectWebApp::DoNotCache();
             if( array_key_exists('HTTP_ACCEPT', $_SERVER)) $format = substr($_SERVER["HTTP_ACCEPT"], strpos($_SERVER["HTTP_ACCEPT"], "$SITE_ROOT/") + 1 );
             $ext = substr($url, strrpos($url, '.') + 1);
             $format = $ext != '' ? $ext : $format;
             if( $format == 'xml' )
             {
-                header('Cache-Control: no-cache, must-revalidate');
-                header('Content-type: text/xml; charset=utf-8;');
+                EpiCollectWebApp::ContentType('xml');
                 echo $prj->toXML();
             }else {
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Content-type: text/html;');
-
-            try{
+                EpiCollectWebApp::ContentType('html');
+                
+                try{
                     //$userMenu = '<h2>View Data</h2><span class="menuItem"><img src="images/map.png" alt="Map" /><br />View Map</span><span class="menuItem"><img src="images/form_view.png" alt="List" /><br />List Data</span>';
                     //$adminMenu = '<h2>Project Administration</h2><span class="menuItem"><a href="./' . $prj->name . '/formBuilder.html"><img src="'.$SITE_ROOT.'/images/form_small.png" alt="Form" /><br />Create or Edit Form(s)</a></span><span class="menuItem"><a href="editProject.html?name='.$prj->name.'"><img src="'.$SITE_ROOT.'/images/homepage_update.png" alt="Home" /><br />Update Project</a></span>';
                     $tblList = '';
@@ -1039,7 +1108,7 @@ function getClusterMarker()
 		$counts = explode("|", $counts);
 	}
 		
-	header("Content-type: image/svg+xml");
+	EpiCollectWebApp::ContentType('svg');
 	echo getGroupMarker($colours, $counts);
 }
 
@@ -1051,25 +1120,24 @@ function getPointMarker()
 	$shape = getValIfExists($_GET, "shape");
 	if(!$colour) $colour = "FF0000";
 	$colour = trim($colour, "#");
-	header("Content-type: image/svg+xml");
+        
+	EpiCollectWebApp::ContentType('svg');
 	echo getMapMaker($colour, $shape);
 }
 
 function siteHome()
 {
-	header("Cache-Control: no-cache, must-revalidate");
+    EpiCollectWebApp::DoNotCache();
 	global $SITE_ROOT, $db, $log,$auth;
 	
 	$vals = array();
 	$server = trim($_SERVER["HTTP_HOST"], "/");
 	$root = trim($SITE_ROOT, "/");
 	
-	//if($_SERVER["HTTPS"] == 'on'){ header(sprintf('location: http://%s%s ', $server, $root));}
-	
 	if(!$db->connected)
 	{
 		$rurl = "http://$server/$root/test?redir=true";
-		header("location: $rurl");
+		EpiCollectWebApp::Redirect($rurl);
 		return;
 	}
 
@@ -1080,7 +1148,7 @@ function siteHome()
 		//$vals["projects"] = "<p class=\"error\">Database is not set up correctly, go to the <a href=\"test\">test page</a> to establish the problem.</p>";
 		//echo applyTemplate("base.html","./index.html",$vals);
 		$rurl = "http://$server/$root/test?redir=true";
-		header("location: $rurl");
+		EpiCollectWebApp::Redirect($rurl);
 		return;
 	}
 	$vals["projects"] = "<div class=\"ecplus-projectlist\"><h1>Most popular projects on this server</h1>" ;
@@ -1258,12 +1326,12 @@ function uploadData()
 					
 				if($res === true)
 				{
-					header("HTTP/1.1 200 OK");
+                                    EpiCollectWebApp::OK();
 					echo 1;
 				}
 				else
 				{
-					header("HTTP/1.1 405 Bad Request");
+                                    EpiCollectWebApp::BadRequest();
 					$log->write("error",  "error : $res\r\n");
 					echo $res;
 				}
@@ -1274,11 +1342,11 @@ function uploadData()
 				$msg = $e->getMessage();
 				if(preg_match("/^Message/", $msg))
 				{
-					header("HTTP/1.1 405 $msg");
+                                    EpiCollectWebApp::BadRequest($msg);
 				}
 				else
 				{
-					header("HTTP/1.1 405 Bad Request");
+                                    EpiCollectWebApp::BadRequest();
 				}
 				echo $msg;
 			}
@@ -1322,7 +1390,7 @@ function getChildEntries($survey, $tbl, $entry, &$res, $stopTbl = false)
 function downloadData()
 {
 	global  $url, $SITE_ROOT;
-	header("Cache-Control: no-cache,  must-revalidate");
+	EpiCollectWebApp::DoNotCache();
 
 	//$flog = fopen('ec/uploads/fileUploadLog.log', 'a+');
 	$survey = new EcProject();
@@ -1411,12 +1479,12 @@ function downloadData()
 	//$ts = $ts->getTimestamp();
 	if( $dataType == 'data' && $xml )
 	{
-		header('Content-type: text/xml');
+            EpiCollectWebApp::ContentType('xml');
 		$fxn = "$root\\ec\\uploads\\{$baseFn}.xml";
 		$fx_url = "$wwwroot/ec/uploads/{$baseFn}.xml";
 		if(file_exists($fxn))
 		{
-			header("location: $fx_url");
+			EpiCollectWebApp::Redirect($fx_url);
 			return;
 		}
 		$fxml = fopen("$fxn", "w+");
@@ -1425,12 +1493,12 @@ function downloadData()
 	}
 	else if($dataType == "data")
 	{
-		header("Content-type: text/plain");
+            EpiCollectWebApp::ContentType('plain');
 		$txn = "$root\\ec\\uploads\\{$baseFn}.tsv";
 		$ts_url = "$wwwroot/ec/uploads/{$baseFn}.tsv";
 		if(file_exists($txn))
 		{
-			header("Location: $ts_url");
+                    EpiCollectWebApp::Redirect($ts_url);
 			return;
 		}
 			
@@ -1438,13 +1506,13 @@ function downloadData()
 	}
 	else
 	{
-
+                EpiCollectWebApp::ContentType('zip');
 		$zfn = "$root\\ec\\uploads\\arc{$baseFn}.zip";
 		$zrl = "$wwwroot/ec/uploads/arc{$baseFn}.zip";
 			
 		if(file_exists($zfn))
 		{
-			header("Location: $zrl");
+			EpiCollectWebApp::Redirect($zrl);
 			return;
 		}
 			
@@ -1660,14 +1728,14 @@ function downloadData()
 	{
 		fwrite($fxml,  "</entries>");
 		fclose($fxml);
-		header("location: $fx_url");
+		EpiCollectWebApp::Redirect($fx_url);
 		return;
 		//echo file_get_contents($fxn);
 	}
 	elseif ($dataType == "data")
 	{
 		fclose($tsv);
-		header("location: $ts_url");
+		EpiCollectWebApp::Redirect($ts_url);
 		return;
 		//echo file_get_contents($txn);
 	}
@@ -1686,7 +1754,7 @@ function downloadData()
 			return;
 		}
 
-		header("Location: $zrl");
+		EpiCollectWebApp::Redirect($zrl);
 		return;
 	}
 }
@@ -1742,7 +1810,7 @@ function formHandler()
 	{
 		
 		$log->write("debug", json_encode($_POST));
-		header("Cache-Control: no-cache, must-revalidate");
+		EpiCollectWebApp::DoNotCache();
 		
 		
 		$_f = getValIfExists($_FILES, "upload");
@@ -1800,7 +1868,7 @@ function formHandler()
 				}
 				else
 				{
-					header("HTTP/1.1 405 Bad Request");
+                                    EpiCollectWebApp::BadRequest();
 					echo "{\"success\":false, \"msg\":\"$key is a required field\"}";
 					return;
 				}
@@ -1814,7 +1882,7 @@ function formHandler()
 			}
 			catch(Exception $e)
 			{
-				header("HTTP/1.1 500 Conflict");
+                            EpiCollectWebApp::BadRequest('CONFLICT')
 				echo $e->getMessage();
 			}
 		}
@@ -1831,11 +1899,11 @@ function formHandler()
 		$offset = array_key_exists('start', $_GET) ? $_GET['start'] : 0;
 		$limit = array_key_exists('limit', $_GET) ? $_GET['limit'] : 0;;
 		
-		
+		EpiCollectWebApp::DoNotCache();
 		switch($format){
 			case 'json':
-				header('Cache-Control: no-cache, must-revalidate');
-				header('Content-Type: application/json');
+                            
+                            EpiCollectWebApp::ContentType('json');
 				
 				$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, getValIfExists($_GET,"sort"), getValIfExists($_GET,"dir"), false, "object");
 				if($res !== true) die($res);
@@ -1854,8 +1922,7 @@ function formHandler()
 				return;
 				
 			case "xml":
-				header("Cache-Control: no-cache, must-revalidate");
-				header("Content-Type: text/xml");
+				EpiCollectWebApp::ContentType('xml');
 				if(array_key_exists("mode", $_GET) && $_GET["mode"] == "list")
 				{
 					echo "<entries>";
@@ -1874,8 +1941,8 @@ function formHandler()
 					return;
 				}
 			case "kml":
-				header("Cache-Control: no-cache, must-revalidate");
-				header("Content-Type: application/vnd.google-earth.kml+xml");
+				EpiCollectWebApp::ContentType('kml');
+				
 				echo '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://earth.google.com/kml/2.0"><Document><name>EpiCollect</name><Folder><name>';
 				echo "{$prj->name} - {$frmName}";
 				echo '</name><visibility>1</visibility>';
@@ -1916,7 +1983,7 @@ function formHandler()
 				return;
 
 			case "csv":
-				header("Cache-Control: no-cache, must-revalidate");
+				EpiCollectWebApp::ContentType('csv')
 				//
 				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
 				$filename = sprintf('ec/uploads/%s_%s_%s%s.csv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
@@ -2030,13 +2097,13 @@ function formHandler()
 				}
 			
 				global $SITE_ROOT;
-				header("Content-Type: text/csv");
-				header(sprintf('location: http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
+				
+				EpiCollectWebApp::Redirect(sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
 				
 				return;
 			
 			case "tsv":
-				header("Cache-Control: no-cache, must-revalidate");
+                            
 				//
 				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
 				$filename = sprintf('ec/uploads/%s_%s_%s%s.tsv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
@@ -2151,14 +2218,14 @@ function formHandler()
 				}
 			
 				global $SITE_ROOT;
-				header("Content-Type: text/tsv");
-				header(sprintf('location: http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
+				EpiCollectWebApp::ContentType('tsv')
+				EpiCollectWebApp::Redirect(sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
 			case "js" :
 				global $SITE_ROOT;
 					
 				$files = array("./Ext/ext-base.js", "./Ext/ext-all.js", "./js/EpiCollect2.js");
-				header("Content-type: text/javascript");
-				header("Cache-Control: public; max-age=100000;");
+				EpiCollectWebApp::ContentType('js')
+				
 				echo packFiles($files);
 				echo "var survey;
 		var table;
@@ -2189,8 +2256,8 @@ function formHandler()
 				return;
 			case "css":
 				global $SITE_ROOT;
-				header("Cache-Control: public; max-age=100000;");
-				header("Content-type: text/css");
+				EpiCollectWebApp::CacheFor(100000);
+				EpiCollectWebApp::ContentType('css');
 					
 				$files = array("./Ext/ext-all.css", "./css/EpiCollect2.css");
 				echo packFiles($files);
@@ -2246,7 +2313,7 @@ function formHandler()
 		}
 	}
 	
-	header("Cache-Control: no-cache, must-revalidate");
+	EpiCollectWebApp::DoNotCache();
 	
 	global $SITE_ROOT;
 	$referer = array_key_exists("HTTP_REFERER", $_SERVER) ? $_SERVER["HTTP_REFERER"] : "";
@@ -2318,7 +2385,7 @@ function entryHandler()
 {
 	global $auth, $url, $log, $SITE_ROOT;
 
-	header("Cache-Control: no-cache, must-revalidate");
+	EpiCollect::DoNotCache();
 
 	$prjEnd = strpos($url, "/");
 	$frmEnd =  strpos($url, "/", $prjEnd+1);
@@ -2344,8 +2411,7 @@ function entryHandler()
 	{
 		if($permissionLevel < 2)
 		{
-			flash('You do not have permission to delete entries on this project');
-			header('HTTP/1.1 403 Forbidden', 403);	
+			EpiCollectWebApp::Denied('delete entries on this project')	
 			return;
 		}
 		
@@ -2359,11 +2425,11 @@ function entryHandler()
 			{
 				if(preg_match("/^Message\s?:/", $e->getMessage()))
 				{
-					header("HTTP/1.1 409 Conflict", 409);
+                                    EpiCollectWebApp::BadRequest('conflict')
 				}
 				else
 				{
-					header("HTTP/1.1 500 Internal Server Error", 500);
+                                    EpiCollectWebApp::Fail();
 				}
 				echo $e->getMessage();
 			}
@@ -2377,9 +2443,7 @@ function entryHandler()
 	{
 		if($permissionLevel < 2)
 		{
-			flash('You do not have permission to edit entries on this project');
-			header('HTTP/1.1 403 Forbidden', 403);
-			return;
+			EpiCollect::Denied(' edit entries for this project');
 		}
 		
 		if($r === true)
@@ -2538,7 +2602,7 @@ function uploadProjectXML()
 	{
 		$server = trim($_SERVER["HTTP_HOST"], "/");
 		$root = trim($SITE_ROOT, "/");
-		header("location: http://$server/$root/editProject.html?name={$prj->name}");
+		EpiCollectWebApp::Redirect("http://$server/$root/editProject.html?name={$prj->name}");
 		return;
 	}
 	else
@@ -2550,7 +2614,7 @@ function uploadProjectXML()
 
 function createFromXml()
 {
-	global $url, $SITE_ROOT, $server, $root;
+	global $url, $SITE_ROOT, $server, $root, $auth;
 
 	$prj = new EcProject();
 	
@@ -2573,26 +2637,32 @@ function createFromXml()
 	if(!$prj->name || $prj->name == "")
 	{
 		flash("No project name provided");
-		header("location: http://$server/$root/createProject.html");
+		EpiCollectWebApp::Redirect("http://$server/$root/createProject.html");
 	}
 	
-	$prj->isListed = $_REQUEST["listed"] == "true";
-	$prj->isPublic = $_REQUEST["public"] == "true";
+        if( $_REQUEST["permission"] == "public" || $_REQUEST["permission"] === "private" )
+        {
+            $prj->isListed = true;
+        }
+        else
+        {
+            $prj->isListed = false;
+        }
+        $prj->isPublic = $_REQUEST["permission"] == "public";
 	$prj->publicSubmission = true;
+        
 	$res = $prj->post();
 	if($res !== true)die($res);
-	
-	$res = $prj->setManagers($_POST["managers"]);
-	if($res !== true)die($res);
-	$res = $prj->setCurators($_POST["curators"]);
-	if($res !== true)die($res);
+        
+	$res = $prj->setManagers($auth->getUserEmail());
+
 	// TODO : add submitter $prj->setProjectPermissions($submitters,1);
 	
 	if($res === true)
 	{
 		$server = trim($_SERVER["HTTP_HOST"], "/");
 		$root = trim($SITE_ROOT, "/");
-		header ("location: http://$server/$root/" . preg_replace("/create.*$/", $prj->name, $url));
+		 EpiCollectWebApp::Redirect("http://$server/$root/" . preg_replace("/create.*$/", $prj->name, $url));
 	}
 	else
 	{
@@ -2673,7 +2743,7 @@ function updateXML()
 	{
 		$server = trim($_SERVER["HTTP_HOST"], "/");
 		$root = trim($SITE_ROOT, "/");
-		//header ("location: http://$server/$root/" . preg_replace("/updateStructure.*$/", $prj->name, $url));
+		
 		echo "{ \"result\": true }";
 	}
 	else
@@ -2686,7 +2756,7 @@ function tableStats()
 {
 	global  $url, $log;
 	ini_set('max_execution_time', 60);
-	header("Cache-Control: no-cache, must-revalidate");
+	EpiCollectWebApp::DoNotCache();
 
 	$prjEnd = strpos($url, "/");
 	$frmEnd =  strpos($url, "/", $prjEnd+1);
@@ -2957,7 +3027,7 @@ function admin()
 	{
 		flash("Configuration only available to server managers", "err");
 			
-		header("location: $SITE_ROOT/");
+		EpiCollectWebApp::Redirect($SITE_ROOT);
 		return;
 	}
 
@@ -2993,7 +3063,7 @@ function createUser()
 {
 	global $auth, $SITE_ROOT, $cfg;
 
-	header("Cache-Control: no-cache; must-revalidate;");
+	EpiCollectWebApp::DoNotCache();
 
 	if($cfg->settings["security"]["use_local"] != "true")
 	{
@@ -3008,7 +3078,7 @@ function createUser()
 		flash("Could not create the user", "err");
 	}
 
-	header("location: http://{$_SERVER["HTTP_HOST"]}$SITE_ROOT/admin");
+	EpiCollectWebApp::Redirect("http://{$_SERVER["HTTP_HOST"]}$SITE_ROOT/admin");
 	return;
 }
 
@@ -3042,7 +3112,7 @@ function managerHandler()
 	}
 
 
-	header("location:  http://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/admin#manage");
+	EpiCollectWebApp::Redirect("http://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/admin#manage");
 	return;
 }
 
@@ -3050,7 +3120,7 @@ function createProject()
 {
 	global $url;
 
-	header("Cache-Control: no-cache, must-revalidate");
+	EpiCollectWebApp::DoNotCache();
 
 	$vals =  array(
 		
@@ -3072,17 +3142,18 @@ function updateProject()
 	
 	$role = intVal($prj->checkPermission($auth->getEcUserId()));
 	
+         EpiCollectWebApp::DoNotCache();
 	if($role != 3)
 	{
 		
-		header("Cache-Control: no-cache; must-revalidate;");
+           
 		flash ("You do not have permission to manage this project", "err");
 		$url = str_replace("update", "", $url);
-		header("location: {$SITE_ROOT}/$url");
+		EpiCollectWebApp::Redirect("{$SITE_ROOT}/$url");
 	}
 	else
 	{
-		header("Cache-Control: no-cache; must-revalidate;");
+		
 		if($_SERVER["REQUEST_METHOD"] == "POST")
 		{
 			$xml = getValIfExists($_POST, "xml");
@@ -3099,7 +3170,7 @@ function updateProject()
 				$prj->parse($xml);
 				if($prj->name != oldName) 
 				{
-					header("HTTP/1.1 400 CANNOT CHANGE NAME", 400);
+                                    EpiCollectWebApp::BadRequest("CANNOT CHANGE NAME");
 					return false;
 				}
 				$drty = true;
@@ -3200,7 +3271,7 @@ function getControlTypes()
 			array_push($arr, $a);
 		}
 			
-		header ("Content-type: application/json");
+		EpiCollectWebApp::ContentType('json')
 		echo json_encode(array("controlTypes" => $arr));
 	}
 }
@@ -3306,31 +3377,31 @@ function getMedia()
 	if(preg_match('~tn~', $url) )
 	{
 		//if the image is a thumbnail just try and open it
-		header("Content-type: " . mimeType($url));
+		EpiCollectWebApp::ContentType($url);
 		echo file_get_contents("./" . $url);
 	}
 	else
 	{
 		if(file_exists("./$url"))
 		{
-			header("Content-type: " . mimeType($url));
+			EpiCollectWebApp::ContentType($url);
 			echo file_get_contents("./" . $url);
 		}
 		elseif(file_exists('./'. str_replace("~", "~tn~", $url)))
 		{
 			$u = str_replace("~", "~tn~", $url);
-			header("Content-type: " . mimeType($u));
+			EpiCollectWebApp::ContentType($url);
 			echo file_get_contents("./" . $u);
 		}
 		elseif(file_exists('./'. substr($url, strpos($url, '~'))))
 		{
 			$u = substr($url, strpos($url, '~'));
-			header("Content-type: " . mimeType($u));
+			EpiCollectWebApp::ContentType($u);
 			echo file_get_contents("./" . $u);
 		}
 		else
 		{
-			header('HTTP/1.1 404 NOT FOUND', 404);
+			EpiCollectWebApp::NotFound('The file you were looking for ');
 			return;
 		}
 	}
@@ -3374,7 +3445,7 @@ function getImage()
 	
 	$picName = getValIfExists($_GET, 'img');
 	
-	header('Content-type: image/jpeg');
+	EpiCollectWebApp::ContentType('jpeg')
 	
 	if($picName)
 	{
@@ -3452,7 +3523,7 @@ function projectUsage()
 	if(!$prj->isPublic && $prj->checkPermission($auth->getEcUserId()) < 2) return "access denied";
 
 	$sum = $prj->getUsage();
-	header("Content-type: text/plain");
+	EpiCollectWebApp::ContentType('plain');
 	echo $sum; //"{\"forms\" : ". json_encode($sum) . "}";
 }
 
@@ -3475,14 +3546,14 @@ function writeSettings()
 	}
 		
 	$cfg->writeConfig();
-	header("Cache-Control: no-cache, must-revalidate");
+	EpiCollectWebApp::DoNotCache();
 	if(getValIfExists($_POST, "edit"))
 	{
-		header("location: $SITE_ROOT/admin");
+		EpiCollectWebApp::Redirect("$SITE_ROOT/admin");
 	}
 	else
 	{
-		header("location: $SITE_ROOT/test");
+		EpiCollectWebApp::Redirect("$SITE_ROOT/test");
 	}
 }
 
@@ -3509,8 +3580,8 @@ function listUsers()
 	{
 		if($auth->isServerManager())
 		{
-			header("Cache-Control: no-cache, must-revalidate");
-			header("Content-Type: application/json");
+                    EpiCollectWebApp::DoNotCache();
+                    EpiCollectWebApp::ContentType('json');
 			
 			echo "{\"users\":[";
 			$usrs = $auth->getUsers();
@@ -3546,8 +3617,9 @@ function enableUser()
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
-		header("Cache-Control: no-cache, must-revalidate");
-		header("Content-Type: application/json");
+		EpiCollectWebApp::DoNotCache();
+                EpiCollectWebApp::ContentType('json');
+                
 		$res = $auth->setEnabled($user, true);
 		if($res === true)
 		{
@@ -3562,7 +3634,7 @@ function enableUser()
 	}
 	else
 	{
-		header("HTTP/1.1 403 Access Denied",null,403);	
+            EpiCollectWebApp::Denied(' this URL');
 	}
 }
 
@@ -3574,8 +3646,9 @@ function disableUser()
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
-		header("Cache-Control: no-cache, must-revalidate");
-		header("Content-Type: application/json");
+		EpiCollectWebApp::DoNotCache();
+                EpiCollectWebApp::ContentType('json');
+                 
 		if($auth->setEnabled($user, false))
 		{
 			
@@ -3588,7 +3661,7 @@ function disableUser()
 	}
 	else
 	{
-		header("HTTP/1.1 403 Access Denied",null,403);
+            EpiCollectWebApp::Denied(' this URL');
 	}
 }
 
@@ -3602,14 +3675,14 @@ function resetPassword()
 	{
 		$res = $auth->resetPassword($user);
 		
-		header("Cache-Control: no-cache, must-revalidate");
-		header("Content-Type: application/json");
+		EpiCollectWebApp::DoNotCache();
+                    EpiCollectWebApp::ContentType('json');
 		echo "{\"result\" : \"$res\"}";
 		
 	}
 	else
 	{
-		header("HTTP/1.1 403 Access Denied",null,403);
+            EpiCollectWebApp::Denied(' this URL');
 	}
 }
 
@@ -3751,8 +3824,8 @@ $pageRules = array(
 
 );
 
-$d = new DateTime();
-$i = $dat->format("su") - $d->format("su");
+//$d = new DateTime();
+//$i = $dat->format("su") - $d->format("su");
 
 $rule = false;
 
@@ -3796,7 +3869,7 @@ if($rule)
 		}
 		if($https_enabled)
 		{
-			header("location: https://{$_SERVER["HTTP_HOST"]}/{$SITE_ROOT}/{$url}");
+                    EpiCollectWebApp::Redirect(sprintf("https://%s/%s/%s",$_SERVER["HTTP_HOST"], $SITE_ROOT, $url));
 			die();
 		}
 	}
@@ -3808,7 +3881,7 @@ if($rule)
 
 	if($rule->login && !$auth->isLoggedIn())
 	{
-		header("Cache-Control: no-cache, must-revalidate");
+            EpiCollectWebApp::DoNotCache();
 			
 		if(array_key_exists("provider", $_GET))
 		{
@@ -3838,8 +3911,8 @@ if($rule)
 	{
 			
 		//static files
-		header("Content-type: " . mimeType($url));
-		header("Cache-Control: public; max-age=100000;");
+		EpiCollectWebApp::ContentType($url);
+		EpiCollectWebApp::CacheForm(100000);
 		echo file_get_contents("./" . $url);
 	}
 }
@@ -3849,9 +3922,5 @@ else
 	$parts = explode("/", $url);
 	echo applyTemplate("./base.html", "./error.html");
 }
-
-$d = new DateTime();
-$i = $dat->format("su") - $d->format("su");
-
 
 ?>

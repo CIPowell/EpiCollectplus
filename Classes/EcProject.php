@@ -424,58 +424,64 @@ class EcProject{
 			$db = new dbConnection();
 			if($this->checkPermission($auth->getEcUserId()) == 3)
 			{
-					//add any new emails
-					$newUsers = str_replace(",", "' as Email UNION SELECT '", $emails);
-					$sql = "INSERT INTO user (Email) SELECT * FROM (SELECT '$newUsers' as Email) a where a.email NOT IN (SELECT Email from user);";
-					//echo $sql;
-					$res = $db->do_query($sql);
-					if($res !== true) return $res;
-					
-					$sql = "delete from userprojectpermission where project = {$this->id} and role = $lvl";
-					$res = $db->do_query($sql);
-					if($res===true)
-					{
-							$db = new dbConnection();
-							$emails = str_replace(",", "','", $emails);
-							$sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
-							$res = $db->do_query($sql);
-							
-					}
-					return $res;
+                            //add any new emails
+                            $newUsers = str_replace(",", "' as Email UNION SELECT '", $emails);
+                            $sql = "INSERT INTO user (Email) SELECT * FROM (SELECT '$newUsers' as Email) a where a.email NOT IN (SELECT Email from user);";
+                            //echo $sql;
+                            $res = $db->do_query($sql);
+                            if($res !== true) return $res;
+
+                            $sql = "delete from userprojectpermission where project = {$this->id} and role = $lvl";
+                            $res = $db->do_query($sql);
+                            if($res===true)
+                            {
+                                            $db = new dbConnection();
+                                            $emails = str_replace(",", "','", $emails);
+                                            $sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
+                                            $res = $db->do_query($sql);
+
+                            }
+                            return $res;
 			}
 			else
 			{
-					return "You do not have permission to update this project";
+                            return "You do not have permission to update this project";
 			}
 		}
 		
+                
+                /**
+                 * 
+                 * @param {array} $emails 
+                 * @return type
+                 */
 		public function setManagers($emails)
 		{
-				return $this->setPermission($emails, 3);
+                    return $this->setPermission($emails, 3);
 		}
 		
 		public function setCurators($emails)
 		{
-				return $this->setPermission($emails, 2);
+                    return $this->setPermission($emails, 2);
 		}
 		
 		public function setSubmitters($emails)
 		{
-				return $this->setPermission($emails, 1);
+                    return $this->setPermission($emails, 1);
 		}
 		public function getManagers()
 		{
-				return $this->getPermission(3);
+                    return $this->getPermission(3);
 		}
 		
 		public function getCurators()
 		{
-				return $this->getPermission(2);
+                    return $this->getPermission(2);
 		}
 		
 		public function getSubmitters()
 		{
-				return $this->getPermission(1);
+                    return $this->getPermission(1);
 		}
 		public function post()
 		{

@@ -2,38 +2,38 @@
 {{/style}}
 
 {{script}}
-  <script type="text/javascript">
-  	var obj;
-  	var publicOpts;
-  	var listOpts;
-  	var curEmail = "{#userEmail#}";
-  	
+ <script type="text/javascript">
+//  	var obj;
+//  	var publicOpts;
+//  	var listOpts;
+//  	var curEmail = "{#userEmail#}";
+//  	
   	$(function(){
-  		publicOpts = $('#public').buttonset();
-  		listOpts = $('#listed').buttonset();
-  		$('.panelSwitcher, .button').button();
-		$('#pdNext').button("disable");
-		
- 		
+//  		publicOpts = $('#public').buttonset();
+//  		listOpts = $('#listed').buttonset();
+//  		$('.panelSwitcher, .button').button();
+//		$('#pdNext').button("disable");
+//		
+// 		
 		$('input[name=name]').on('change', function(evt){
 			if($('.projectName').text() != '') return;
 			
 			$.ajax({
 				url: './' + $(evt.target).val(),
 				error: function(xhr, status, s){
-					$('#pdNext').button("enable");
-					$(evt.target).removeClass('ecplus-invalid');
-					$('#projectNameMsg').html('<p class="msg">Project name available.</p>');
+					//$('#pdNext').button("enable");
+					$(evt.target).parent().removeClass('error');
+					$('#projectNameMsg').html('<p class="alert alert-info">Project name available.</p>');
 				},
 				success: function(){
-					$('#pdNext').button("disable");
+					//$('#pdNext').button("disable");
 					
-					$(evt.target).addClass('ecplus-invalid');
-					$('#projectNameMsg').html('<p class="err">Project name is already in use. Project name must be unique.</p>');
+					$(evt.target).parent().addClass('error');
+					$('#projectNameMsg').html('<p class="alert alert-error">Project name is already in use. Project name must be unique.</p>');
 				}
 			});
 		});
-		
+//		
 		$('#uploadxml').on('load', function(){
 			var doc = ($('#uploadxml')[0].contentWindow.document || $('#uploadxml')[0].contentDocument);
 			var frm = doc.forms[0]; 
@@ -61,41 +61,41 @@
 	  				if(cw_url != location.protocol + '//' + location.host + "{#SITE_ROOT#}/html/projectIFrame.html") {$('#uploadxml')[0].src = "{#SITE_ROOT#}/html/projectIFrame.html";}
 	  				$('#uploadxml').show();
 	  				//show error messages
-	  				$('#uploadStatus').addClass("err");
-	  				$('#uploadStatus').removeClass("go");
+	  				$('#uploadStatus').addClass("alert alert-error");
+	  				$('#uploadStatus').removeClass("alert-success");
 	  				$('#uploadStatus').append("<p>" + obj.msgs.join("</p><p>") + "</p>");
-	  				if(!$('input[name=name]').val()) $('#pdNext').button("disable");
+                                        
 	  			}
 	  			else
 	  			{
 	  				if(cw_url != location.protocol + '//' + location.host + "{#SITE_ROOT#}/html/projectIFrame.html") {$('#uploadxml')[0].src = "{#SITE_ROOT#}/html/projectIFrame.html";}
-	  				$('#uploadStatus').addClass("go");
-	  				$('#uploadStatus').removeClass("err");
+	  				$('#uploadStatus').addClass("alert alert-success");
+	  				$('#uploadStatus').removeClass("alert-error");
 	  			
 	  				$('#uploadStatus').append("XML is valid for the project " + obj.name);
 	  				$('.projectName').text(obj.name);
 	  				$(document.forms[0].xml).val(obj.file);
-	  				$('#pdNext').button("enable");
+	  				$('input[name=name]').val(obj.name)
 	  			}
 	  			
 	  		});
 		})
-  		
-  		goTo('projectDef');
-		
-		$('#pdNext').mouseover(function(evt){
-			$('input[name=name]').change();
-		});
-		
-		$('#uploadBox').accordion({
-			collapsible : true,
-			active: false,
-			heightStyle : 'content'
-		});
+//  		
+//  		goTo('projectDef');
+//		
+//		$('#pdNext').mouseover(function(evt){
+//			$('input[name=name]').change();
+//		});
+//		
+//		$('#uploadBox').accordion({
+//			collapsible : true,
+//			active: false,
+//			heightStyle : 'content'
+//		});
   	});
-  	
- 	
-  	
+//  	
+// 	
+//  	
   	
   </script>
 {{/script}}
@@ -112,15 +112,15 @@
     </div>
     <form id="projectOptions" action="create" method="POST">
         <div class="row choose">
-            <div class="span5">
-                 <h3>Choose a name for the project</h3>
-                 <input name="name" />
+            <div class="span4 control-group">
+                 <label class="control-label" for="#projectName">Choose a name for the project</label>
+                 <input name="name" id="projectName" />
                  <div id="projectNameMsg"></div>
             </div>
             <div class="span2">
                 <h2>OR</h2>
             </div>
-            <div id="uploadBox" class="span5">
+            <div id="uploadBox" class="span4">
                 
                     <button type="button" class="btn btn-primary" data-toggle="collapse" data-target="#uploadpanel">Upload an existing EpiCollect project definition</button>
                     <div id="uploadpanel" class="collapse">
@@ -133,10 +133,18 @@
         <div class="row">
             <div class="span12">
                 <h2>Project Access</h2>
-
-                <p></p>
-
-                <a href="javascript:document.forms[0].submit();"> Create Project </a>	
+                <p>Please choose a level of access for your project.</p>
+                <label for="project-public" class="radio">  <input type="radio" name="permission" value="public" id="project-public" checked="checked" /><strong>Public</strong>: Your data is visible to anyone and you are included on the project list. Intended for use
+                by Citizen Science projects and projects that need to recruit volunteers from the general public.</label>
+                <label for="project-private" class="radio"><input type="radio" name="permission" value="private" id="project-private" /><strong>Private</strong>: Your data is only visible to members of your project and you are included on the project list. Intended for 
+                projects that have a specific participants, but want to raise public awareness.</label>
+                <label for="project-hidden" class="radio"><input type="radio" name="permission" value="hidden" id="project-hidden" /><strong>Hidden</strong>: No one can see your project unless you add them to it. Intended for use with projects that have sensitive data<label>  
+            </div>	
+        </div>
+        <div class="row">
+            <div class="span12 submit-buttons">
+                <input type="submit" class="btn btn-primary" name="submit" value="Create Project" /> 
+                <a class="btn" href="./">Cancel</a>
             </div>	
         </div>
 	</form>

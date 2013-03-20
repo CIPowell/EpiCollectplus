@@ -6,9 +6,9 @@
 			body
 			{
 				margin:0;
-				padding:0;
+				padding: 0.5em 0.5em 0.5em 0.5em;
 				min-width : 0;
-				width: 45em;
+				width: 95%;
 				height:2em;
 			}
 			
@@ -16,7 +16,8 @@
 	</head>
 	<body>
 		<form method="POST" enctype="multipart/form-data"  action="../pc" >
-			<p>Choose an EpiCollect+ project definition to upload and validate <input type="file" name="xml" /></p>
+			<p>Choose an EpiCollect+ project definition to upload and validate </p>
+                        <input type="file" name="xml" />
 			<input type="hidden" name="json" value="true" />
 			<input type="hidden" name="update" value="false" />
 		</form>

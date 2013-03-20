@@ -107,17 +107,39 @@ msg
     .btn;
 }
 
+.submit-buttons
+{
+    text-align : right;
+}
+
 .row
 {
     &.choose
     {
         border-top: 1px solid @tableBorder;
         border-bottom: 1px solid @tableBorder;
+        min-height: 8em;
+        padding : @paddingLarge;
 
-        div.span2, div.span5
+        #uploadBox
         {
+            padding: (@baseLineHeight / 2) 0;
+        }
 
+        iframe
+        {
+            width : 95%;
+            height : 8em;
+            border: 1px solid @navbarBorder ;
+        }
+
+        .btn
+        {
+            width : 95.5%;
+            border-bottom-left-radius : 0;
+            border-bottom-right-radius : 0;
         }
     }
+    
 }		
 
