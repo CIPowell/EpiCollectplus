@@ -41,6 +41,10 @@ class EpiCollectWebApp
         header(sprintf('location: %s', $url));
     }
     
+    /**
+     * Send a 404 HTTP Response
+     * @param type $location
+     */
     static function NotFound($location)
     {
         header("HTTP/1.1 404 NOT FOUND", true, 404);
@@ -48,34 +52,55 @@ class EpiCollectWebApp
         echo applyTemplate('base.html','./404.html', $vals);
     }
     
-    static function Denied($location)
+    
+    /**
+     * Send an access denied error and send the user ro 
+     *
+     * @param type $location the location the user was trying to get to
+     * @param type $redirect the location to send the user to
+     */
+    static function Denied($location, $redirect = "/")
     {
-        global $SITE_ROOT;
         header("HTTP/1.1 403 Access Denied", true, 403);
         flash(sprintf('You do not have access to %s', $location));
-        EpiCollectWebApp::Redirect($SITE_ROOT);
+        EpiCollectWebApp::Redirect($root);
     }
     
+    /**
+     * Send OK Headers
+     */
     static function OK()
     {
         header('HTTP/1.1 200 OK', true, 200);
     }
     
+     /**
+     * Send Internal Error Headers
+     */
     static function Fail()
     {
         header('HTTP/1.1 500 OK', true, 500);
     }
     
+    /**
+     * Send Bad request headers
+     */
     static function BadRequest($msg = 'Bad Request')
     {
         header(sprintf('HTTP/1.1 405 %s', $msg));
     }
     
+    /**
+     * Send the content type header
+     */
     static function ContentType($type)
     {
         header(sprintf('Content-type: %s;', EpiCollectWebApp::mimeType($type)));
     }
     
+     /**
+     * get mime type from an extension or filename
+     */
     private static function mimeType($f)
     {
             $mimeTypes = array(
@@ -111,8 +136,22 @@ class EpiCollectWebApp
             }
             else
             {
-                    return 'text/plain';
+                    return 'text/html';
             }
+    }
+}
+
+class EpiCollectUtils
+{
+    static function genStr()
+    {   
+	$source_str = './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	$rand_str = str_shuffle($source_str);
+	$str = substr($rand_str, -22);
+
+        unset($source_str, $rand_str);
+        
+        return $str;
     }
 }
 
@@ -121,7 +160,7 @@ $SITE_ROOT = '';
 if( !isset($PHP_UNIT) ) { $PHP_UNIT = false; }
 if( !$PHP_UNIT ){ @session_start(); }
 
-function getValIfExists($array, $key)
+function array_get_if_exists($array, $key)
 {
 	if(array_key_exists($key, $array))
 	{
@@ -181,17 +220,6 @@ include (sprintf('%s/Classes/EcEntry.php', $DIR));
 global $cfg;
 $cfg = new ConfigManager(sprintf('%s/ec/epicollect.ini', ltrim($DIR, '/')));
 
-function genStr()
-{
-	$source_str = './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	$rand_str = str_shuffle($source_str);
-	$str = substr($rand_str, -22);
-
-        unset($source_str, $rand_str);
-        
-        return $str;
-}
-
 if($cfg->settings['security']['use_ldap'] && !function_exists('ldap_connect'))
 {
 	$cfg->settings['security']['use_ldap'] = false;
@@ -201,7 +229,7 @@ if($cfg->settings['security']['use_ldap'] && !function_exists('ldap_connect'))
 
 if(!array_key_exists('salt',$cfg->settings['security']) || trim($cfg->settings['security']['salt']) == '')
 {
-	$str = genStr();
+	$str = EpiCollectUtils::genStr();
 	$cfg->settings['security']['salt'] = $str;
 	$cfg->writeConfig();
 }
@@ -249,9 +277,9 @@ $auth = new AuthManager();
 
 function escapeTSV($string)
 {
-	$string = str_replace("\n", "\\n", $string);
-	$string = str_replace("\r", "\\r", $string);
-	$string = str_replace("\t", "\\t", $string);
+	$string = str_replace('\n', '\\n', $string);
+	$string = str_replace('\r', '\\r', $string);
+	$string = str_replace('\t', '\\t', $string);
 	return $string;
 }
 
@@ -463,7 +491,7 @@ function formDataLastUpdated()
 {
     global $url,  $log, $auth;
 
-	$http_accept = getValIfExists($_SERVER, 'HTTP_ACCEPT');
+	$http_accept = array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
 	$format = ($http_accept ? substr($http_accept, strpos($http_accept, '/') + 1) : '');
 	$ext = substr($url, strrpos($url, ".") + 1);
 	$format = $ext != "" ? $ext : $format;
@@ -587,9 +615,9 @@ function loginCallback()
     EpiCollectWebApp::DoNotCache();
      
 	global $auth, $cfg, $db;
-        $provider = getValIfExists($_POST, 'provider');
+        $provider = array_get_if_exists($_POST, 'provider');
         if(!$provider)
-            $provider = getValIfExists($_SESSION, 'provider');
+            $provider = array_get_if_exists($_SESSION, 'provider');
         else {
             $_SESSION['provider'] = $provider;
         }
@@ -1087,8 +1115,8 @@ function siteTest()
 function getClusterMarker()
 {
 	include '/utils/markers.php';
-	$colours = getValIfExists($_GET, "colours");
-	$counts = getValIfExists($_GET, "counts");
+	$colours = array_get_if_exists($_GET, "colours");
+	$counts = array_get_if_exists($_GET, "counts");
 	
 	$colours = trim($colours, '|');
 	$counts = trim($counts, '|');
@@ -1120,8 +1148,8 @@ function getPointMarker()
 {
 	include "./utils/markers.php";
 	
-	$colour = getValIfExists($_GET, "colour");
-	$shape = getValIfExists($_GET, "shape");
+	$colour = array_get_if_exists($_GET, "colour");
+	$shape = array_get_if_exists($_GET, "shape");
 	if(!$colour) $colour = "FF0000";
 	$colour = trim($colour, "#");
         
@@ -1305,12 +1333,12 @@ function uploadData()
 						$bearing = "{$key}_bearing";
 						
 						$ent->values[$key] = array(
-							'latitude' => (string) getValIfExists($_POST, $lat),
-							'longitude' => (string)getValIfExists($_POST,$lon),
-							'altitude' => (string)getValIfExists($_POST,$alt),
-							'accuracy' => (string) getValIfExists($_POST,$acc), 
-							'provider' => (string)getValIfExists($_POST,$src),
-							'bearing' =>  (string)getValIfExists($_POST,$bearing),
+							'latitude' => (string) array_get_if_exists($_POST, $lat),
+							'longitude' => (string)array_get_if_exists($_POST,$lon),
+							'altitude' => (string)array_get_if_exists($_POST,$alt),
+							'accuracy' => (string) array_get_if_exists($_POST,$acc), 
+							'provider' => (string)array_get_if_exists($_POST,$src),
+							'bearing' =>  (string)array_get_if_exists($_POST,$bearing),
 						);
 					}
 					else if(!array_key_exists($key, $_POST))
@@ -1412,9 +1440,9 @@ function downloadData()
 	$root =substr($_SERVER["SCRIPT_FILENAME"], 0, $pos);
 	
 	$wwwroot = "http://{$_SERVER["HTTP_HOST"]}$SITE_ROOT";
-	$startTbl = (array_key_exists('select_table', $_GET) ? getValIfExists($_GET, "table") : false);
-	$endTbl = (array_key_exists('select_table', $_GET) ? getValIfExists($_GET, "select_table") :  getValIfExists($_GET, "table"));
-	$entry = getValIfExists($_GET, "entry");
+	$startTbl = (array_key_exists('select_table', $_GET) ? array_get_if_exists($_GET, "table") : false);
+	$endTbl = (array_key_exists('select_table', $_GET) ? array_get_if_exists($_GET, "select_table") :  array_get_if_exists($_GET, "table"));
+	$entry = array_get_if_exists($_GET, "entry");
 	$dataType = (array_key_exists('type', $_GET) ? $_GET["type"] : "data");
 	$xml = !(array_key_exists('xml', $_GET) && $_GET['xml'] === "false");
 
@@ -1768,7 +1796,7 @@ function formHandler()
 {
 	global $url,  $log, $auth;
 
-	$http_accept = getValIfExists($_SERVER, 'HTTP_ACCEPT');
+	$http_accept = array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
 	$format = ($http_accept ? substr($http_accept, strpos($http_accept, '/') + 1) : '');
 	$ext = substr($url, strrpos($url, ".") + 1);
 	$format = $ext != "" ? $ext : $format;
@@ -1817,7 +1845,7 @@ function formHandler()
 		EpiCollectWebApp::DoNotCache();
 		
 		
-		$_f = getValIfExists($_FILES, "upload");
+		$_f = array_get_if_exists($_FILES, "upload");
 		
 		if( $_f )
 		{
@@ -1909,7 +1937,7 @@ function formHandler()
                             
                             EpiCollectWebApp::ContentType('json');
 				
-				$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, getValIfExists($_GET,"sort"), getValIfExists($_GET,"dir"), false, "object");
+				$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object");
 				if($res !== true) die($res);
 						
 				$i = 0;			
@@ -1930,7 +1958,7 @@ function formHandler()
 				if(array_key_exists("mode", $_GET) && $_GET["mode"] == "list")
 				{
 					echo "<entries>";
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, getValIfExists($_GET,"sort"), getValIfExists($_GET,"dir"), false, "xml");
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "xml");
 					if($res !== true) die($res);
 					while($ent = $prj->tables[$frmName]->recieve(1, true))
 					{
@@ -2031,7 +2059,7 @@ function formHandler()
 					}
 					
 					fwrite($fp, sprintf("\"%s\"\n", implode('","', $headers)));
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, getValIfExists($_GET,"sort"), getValIfExists($_GET,"dir"), false, "object", true);
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object", true);
 					if($res !== true) die($res);
 					
 					$count_h = count($real_flds);
@@ -2152,7 +2180,7 @@ function formHandler()
 					}
 					
 					fwrite($fp, sprintf("\"%s\"\n", implode("\"\t\"", $headers)));
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, getValIfExists($_GET,"sort"), getValIfExists($_GET,"dir"), false, "object", true);
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object", true);
 					if($res !== true) die($res);
 					
 					$count_h = count($real_flds);
@@ -2361,7 +2389,7 @@ function formHandler()
 	
 	
 		
-	$mapScript = $prj->tables[$frmName]->hasGps() ? "<script type=\"text/javascript\" src=\"" . (getValIfExists($_SERVER, 'HTTPS') ? 'https' : 'http') . "://maps.google.com/maps/api/js?sensor=false\"></script>
+	$mapScript = $prj->tables[$frmName]->hasGps() ? "<script type=\"text/javascript\" src=\"" . (array_get_if_exists($_SERVER, 'HTTPS') ? 'https' : 'http') . "://maps.google.com/maps/api/js?sensor=false\"></script>
 	<script type=\"text/javascript\" src=\"{$SITE_ROOT}/js/markerclusterer.js\"></script>" : "";
 	$vars = array(
 			"prevForm" => $p,
@@ -2389,7 +2417,7 @@ function entryHandler()
 {
 	global $auth, $url, $log, $SITE_ROOT;
 
-	EpiCollect::DoNotCache();
+	EpiCollectWebApp::DoNotCache();
 
 	$prjEnd = strpos($url, "/");
 	$frmEnd =  strpos($url, "/", $prjEnd+1);
@@ -2479,11 +2507,11 @@ function entryHandler()
 	}
 	else if($_SERVER["REQUEST_METHOD"] == "GET")
 	{
-		$val = getValIfExists($_GET, 'term');
-		$do  = getValIfExists($_GET, 'validate');
-		$key_from = getValIfExists($_GET, 'key_from');
-		$secondary_field = getValIfExists($_GET, 'secondary_field');
-		$secondary_value = getValIfExists($_GET, 'secondary_value');
+		$val = array_get_if_exists($_GET, 'term');
+		$do  = array_get_if_exists($_GET, 'validate');
+		$key_from = array_get_if_exists($_GET, 'key_from');
+		$secondary_field = array_get_if_exists($_GET, 'secondary_field');
+		$secondary_value = array_get_if_exists($_GET, 'secondary_value');
 		ini_set('max_execution_time', 60);
 		if($entId == 'title')
 		{
@@ -2520,8 +2548,8 @@ function updateUser()
 	
 	if($_SERVER["REQUEST_METHOD"] == "POST")
 	{
-		$pwd = getValIfExists($_POST, "password");
-		$con = getValIfExists($_POST, "confirmpassword");
+		$pwd = array_get_if_exists($_POST, "password");
+		$con = array_get_if_exists($_POST, "confirmpassword");
 		
 		$change = true;
 		
@@ -2729,10 +2757,10 @@ function updateXML()
 		$prj->publicSubmission = true;
 	}
 
-	if(!getValIfExists($_POST, "skipdesc"))
+	if(!array_get_if_exists($_POST, "skipdesc"))
 	{	
-		$prj->description = getValIfExists($_POST, "description");
-		$prj->image = getValIfExists($_POST, "projectImage");
+		$prj->description = array_get_if_exists($_POST, "description");
+		$prj->image = array_get_if_exists($_POST, "projectImage");
 	}
 	
 	if(array_key_exists("listed", $_REQUEST)) $prj->isListed = $_REQUEST["listed"] == "true";
@@ -2811,10 +2839,10 @@ function projectCreator()
 	{
 		move_uploaded_file($_FILES["xml"]["tmp_name"], "ec/xml/{$_FILES["xml"]["name"]}");
 	}
-	if(getValIfExists($_REQUEST, "json"))
+	if(array_get_if_exists($_REQUEST, "json"))
 	{
 		$n = '';
-		echo validate("{$_FILES["xml"]["name"]}", NULL, $n, getValIfExists($_POST, 'update'));
+		echo validate("{$_FILES["xml"]["name"]}", NULL, $n, array_get_if_exists($_POST, 'update'));
 	}
 	else
 	{
@@ -2832,7 +2860,7 @@ function validate($fn = NULL, $xml = NULL, &$name = NULL, $update = false, $retu
 	$isValid = true;
 	$msgs = array();
 
-	if(!$fn) $fn = getValIfExists($_GET, "filename");
+	if(!$fn) $fn = array_get_if_exists($_GET, "filename");
 	
 	if($fn && !$xml)
 	{		
@@ -3012,7 +3040,7 @@ function validate($fn = NULL, $xml = NULL, &$name = NULL, $update = false, $retu
 	{
 		return count($msgs) == 0 ? true : str_replace('"', '\"', implode("\",\"", $msgs));
 	}
-	elseif( getValIfExists($_REQUEST, "json") )
+	elseif( array_get_if_exists($_REQUEST, "json") )
 	{
 		echo "{\"valid\" : " . (count($msgs) == 0 ? "true" : "false") . ", \"msgs\" : [ \"" . str_replace('"', '\"', implode("\",\"", $msgs))  . "\" ], \"name\" : \"$name\", \"file\" :\"$fn\" }";
 	}
@@ -3160,11 +3188,11 @@ function updateProject()
 		
 		if($_SERVER["REQUEST_METHOD"] == "POST")
 		{
-			$xml = getValIfExists($_POST, "xml");
-			$managers = getValIfExists($_POST, "managers");
-			$curators = getValIfExists($_POST, "curators");
-			$public = getValIfExists($_POST, "public");
-			$listed = getValIfExists($_POST, "listed");
+			$xml = array_get_if_exists($_POST, "xml");
+			$managers = array_get_if_exists($_POST, "managers");
+			$curators = array_get_if_exists($_POST, "curators");
+			$public = array_get_if_exists($_POST, "public");
+			$listed = array_get_if_exists($_POST, "listed");
 
 			
 			
@@ -3180,16 +3208,16 @@ function updateProject()
 				$drty = true;
 			}
 			
-			echo 'description ' . $prj->description . ' ' .getValIfExists($_POST, "description") ;
-			if($prj->description != getValIfExists($_POST, "description"))
+			echo 'description ' . $prj->description . ' ' .array_get_if_exists($_POST, "description") ;
+			if($prj->description != array_get_if_exists($_POST, "description"))
 			{
 				
-				$prj->description = getValIfExists($_POST, "description");
+				$prj->description = array_get_if_exists($_POST, "description");
 				$drty = true;
 			}
-			if($prj->image != getValIfExists($_POST, "projectImage"))
+			if($prj->image != array_get_if_exists($_POST, "projectImage"))
 			{
-				$prj->image = getValIfExists($_POST, "projectImage");
+				$prj->image = array_get_if_exists($_POST, "projectImage");
 				$drty = true;
 			}
 			
@@ -3447,7 +3475,7 @@ function getImage()
 	$extStart = strrpos($url, '/');
 	$frmName = rtrim(substr($url, $pNameEnd + 1, ($extStart > 0 ?  $extStart : strlen($url)) - $pNameEnd - 1), "/");
 	
-	$picName = getValIfExists($_GET, 'img');
+	$picName = array_get_if_exists($_GET, 'img');
 	
 	EpiCollectWebApp::ContentType('jpeg');
 	
@@ -3456,7 +3484,7 @@ function getImage()
 		$tn = sprintf('./ec/uploads/%s~tn~%s', $prj->name, $picName);
 		$full = sprintf('./ec/uploads/%s~%s', $prj->name, $picName);
 		
-		$thumbnail = getValIfExists($_GET, 'thumbnail') === 'true';
+		$thumbnail = array_get_if_exists($_GET, 'thumbnail') === 'true';
 		
 		$raw_not_tn = str_replace('~tn~', '~', $picName);
 		
@@ -3551,7 +3579,7 @@ function writeSettings()
 		
 	$cfg->writeConfig();
 	EpiCollectWebApp::DoNotCache();
-	if(getValIfExists($_POST, "edit"))
+	if(array_get_if_exists($_POST, "edit"))
 	{
 		EpiCollectWebApp::Redirect("$SITE_ROOT/admin");
 	}
@@ -3617,7 +3645,7 @@ function enableUser()
 {
 	global $auth;
 	
-	$user = getValIfExists($_POST, "user");
+	$user = array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
@@ -3646,7 +3674,7 @@ function disableUser()
 {
 	global $auth;
 	
-	$user = getValIfExists($_POST, "user");
+	$user = array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
@@ -3673,7 +3701,7 @@ function resetPassword()
 {
 	global $auth;
 	
-	$user = getValIfExists($_POST, "user");
+	$user = array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user && preg_match("/[0-9]+/", $user))
 	{
@@ -3835,7 +3863,7 @@ $rule = false;
 
 /*Cookie policy handler*/
 
-if(!getValIfExists($_SESSION, 'SEEN_COOKIE_MSG')) {
+if(!array_get_if_exists($_SESSION, 'SEEN_COOKIE_MSG')) {
 	flash(sprintf('EpiCollectPlus only uses first party cookies to make the site work. We do not add or read third-party cookies. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $SITE_ROOT));
 	$_SESSION['SEEN_COOKIE_MSG'] = true;
 }
@@ -3861,7 +3889,7 @@ else
 
 if($rule)
 {
-	if($rule->secure && !getValIfExists($_SERVER, "HTTPS"))
+	if($rule->secure && !array_get_if_exists($_SERVER, "HTTPS"))
 	{
 		$https_enabled = false;
 		try{

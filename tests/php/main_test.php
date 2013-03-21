@@ -30,10 +30,10 @@ class MainTest extends PHPUnit_Framework_TestCase
 	public function test_get_val()
 	{
 		$arr = array();
-		$this->isNull(getValIfExists($arr, 'foo'));
+		$this->isNull(array_get_if_exists($arr, 'foo'));
 		
 		$arr["foo"] = "bar";
-		$this->assertEquals(getValIfExists($arr, 'foo'), 'bar');
+		$this->assertEquals(array_get_if_exists($arr, 'foo'), 'bar');
 	}
 	
 	

@@ -938,12 +938,12 @@
 						$bearing = sprintf('%s_bearing', $fields[$f]);
 						
 						$entry->values[$fields[$f]] = array(
-							'latitude' => getValIfExists($ent, $lat),
-							'longitude' => getValIfExists($ent, $lon),
-							'altitude' => getValIfExists($ent, $alt),
-							'accuracy' => getValIfExists($ent, $acc),
-							'provider' => getValIfExists($ent, $src),
-							'bearing' => getValIfExists($ent, $bearing)
+							'latitude' => array_get_if_exists($ent, $lat),
+							'longitude' => array_get_if_exists($ent, $lon),
+							'altitude' => array_get_if_exists($ent, $alt),
+							'accuracy' => array_get_if_exists($ent, $acc),
+							'provider' => array_get_if_exists($ent, $src),
+							'bearing' => array_get_if_exists($ent, $bearing)
 						);
 					}
 					elseif ( ( $this->fields[$fields[$f]]->type == "photo" || $this->fields[$fields[$f]]->type == "video" || $this->fields[$fields[$f]]->type == "audio" ) 

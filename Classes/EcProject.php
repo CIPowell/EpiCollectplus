@@ -689,7 +689,7 @@ class EcProject{
 				global $SITE_ROOT, $XML_VERSION;
 		
 				$protocol = 'http';
-				if (getValIfExists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
+				if (array_get_if_exists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
 				
 				$xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n
 <ecml version=\"$XML_VERSION\">
