@@ -228,7 +228,7 @@
 				global $db;
 				$this->db = $db;
  				include_once("db/dbConnection.php");
-				if(!$this->db) $this->db = new dbConnection();
+				if(!$this->db) $this->db = new EpiCollectDatabaseConnection();
 			}
 			
 			$username = $this->db->escapeArg($username);

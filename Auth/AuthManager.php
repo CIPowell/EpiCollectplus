@@ -20,10 +20,8 @@
 	private $ldapEnabled = true;
 	private $localEnabled = true;
 	
-	function __construct()
-	{
-		global $cfg;
-		
+	function __construct($cfg)
+	{	
 		if(array_key_exists("use_openID", $cfg->settings["security"]))
 		{
 			$this->openIdEnabled = $cfg->settings["security"]["use_openID"] == "true";
@@ -224,7 +222,7 @@
   		}
   		else
   		{
-  			flash("Login failed, please try again");
+  			EpiCollectWebApp::flash("Login failed, please try again");
   			if(!array_key_exists("tries", $_SESSION))
   			{
   				$_SESSION["tries"] = 1;
@@ -243,7 +241,7 @@
   	{
   		//if(!array_key_exists($provider, $this->providers)) return false;
   		global $db;
-  		if(!$db) $db = new dbConnection();
+  		if(!$db) $db = new EpiCollectDatabaseConnection();
   		  		
   		$res = $db->do_query("DELETE FROM ecsession WHERE id = '" . session_id() . "'");
   		if(!$res) die("$res - $sql");
@@ -264,7 +262,7 @@
   		{
   			try 
   			{
-  				$db = new dbConnection();
+  				$db = new EpiCollectDatabaseConnection();
   			}
   			catch(Exception $e)
   			{
@@ -357,7 +355,7 @@
   	
   	private function populateSesssionInfo()
   	{
-	   $db = new dbConnection();
+	   $db = new EpiCollectDatabaseConnection();
 	   $qry = "SELECT idUsers as userId, FirstName, LastName, Email, language FROM user WHERE openId = '{$_SESSION['openid']}'";
 	   $err = $db->do_query($qry);
 	   if($err === true)
@@ -381,12 +379,12 @@
 	  
 	  	 	if($res === true)
 	  	 	{
-	  	 		if(!$hasManagers) flash('Please sign in with the user account you have just created.');
+	  	 		if(!$hasManagers) EpiCollectWebApp::flash('Please sign in with the user account you have just created.');
 	  	 		return true;
 	  	 	}
 	  	 	elseif(preg_match("/Duplicate entry '.*' for key 'Email'/", $res))
 	  	 	{
-	  	 		flash("A user already exists with that email address", "err");
+	  	 		EpiCollectWebApp::flash("A user already exists with that email address", "err");
 	  	 	}
 	  	}
 	  	else

@@ -17,7 +17,7 @@ class EcProjectTest	 extends PHPUnit_Framework_TestCase
 	{
 		global $db, $cfg;
 		$cfg = new ConfigManager('../../ec/epicollect.ini');
-		$db = new dbConnection();
+		$db = new EpiCollectDatabaseConnection();
 	}
 	
 	protected function tearDown()

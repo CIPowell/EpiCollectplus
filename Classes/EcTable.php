@@ -136,7 +136,7 @@
 		
 		public function fetch()
 		{
-			$db = new dbConnection();
+			$db = new EpiCollectDatabaseConnection();
 			//global $db;
 			$this->titleFields = array();
 			$qry = "SELECT * from form WHERE";
@@ -938,12 +938,12 @@
 						$bearing = sprintf('%s_bearing', $fields[$f]);
 						
 						$entry->values[$fields[$f]] = array(
-							'latitude' => array_get_if_exists($ent, $lat),
-							'longitude' => array_get_if_exists($ent, $lon),
-							'altitude' => array_get_if_exists($ent, $alt),
-							'accuracy' => array_get_if_exists($ent, $acc),
-							'provider' => array_get_if_exists($ent, $src),
-							'bearing' => array_get_if_exists($ent, $bearing)
+							'latitude' => EpiCollectUtils::array_get_if_exists($ent, $lat),
+							'longitude' => EpiCollectUtils::array_get_if_exists($ent, $lon),
+							'altitude' => EpiCollectUtils::array_get_if_exists($ent, $alt),
+							'accuracy' => EpiCollectUtils::array_get_if_exists($ent, $acc),
+							'provider' => EpiCollectUtils::array_get_if_exists($ent, $src),
+							'bearing' => EpiCollectUtils::array_get_if_exists($ent, $bearing)
 						);
 					}
 					elseif ( ( $this->fields[$fields[$f]]->type == "photo" || $this->fields[$fields[$f]]->type == "video" || $this->fields[$fields[$f]]->type == "audio" ) 

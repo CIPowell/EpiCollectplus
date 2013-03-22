@@ -1,18 +1,332 @@
 <?php
+include ('./Classes/PageSettings.php');
+include ('./Classes/configManager.php');
+include ('./Classes/Logger.php');
+/*
+ * Ec Class declatratioions
+ */
+include('./Classes/EcProject.php');
+include('./Classes/EcTable.php');
+include('./Classes/EcField.php');
+include ('./Classes/EcOption.php');
+include ('./Classes/EcEntry.php');
+include ('./utils/HttpUtils.php');
+include ('./Auth/AuthManager.php');
+include ('./db/dbConnection.php');
 
-if (isset($_REQUEST['_SESSION'])) throw new Exception('Bad client request');
-
-date_default_timezone_set('UTC');
 //$dat = new DateTime('now');
 //$dfmat = '%s.u';
 
 class EpiCollectWebApp 
 {
-    
+    /**
+     *
+     * @var string the URL of the homepage of this site, included in case EpiCollect+ is deployed in a sub-folder of a website 
+     */
     private $site_root = '';
-    public static $XML_VERSION = 1.0;
-    public static $CODE_VERSION = "1.4";
+    private $auth, $cfg, $db, $logger, $host, $https_enabled;
+    const XML_VERSION = 1.0;
+    const CODE_VERSION = "1.4";
     
+    private $page_rules = array();
+    
+    function __construct() {
+        date_default_timezone_set('UTC');
+        
+        $script_name = EpiCollectUtils::array_get_if_exists($_SERVER, 'SCRIPT_NAME');
+        
+        if( $script_name !== false )
+        {
+            if( strpos($script_name, 'main.php') )
+            {
+                    //IIS
+                    $this->site_root = str_replace('/main.php', '', $_SERVER['PHP_SELF']);
+            }
+            else
+            {
+                    //Apache
+                    $this->site_root = str_replace(array($_SERVER['DOCUMENT_ROOT'], '/main.php') , '', $_SERVER['SCRIPT_FILENAME']);
+            }
+        }
+        
+        
+        $this->cfg = new ConfigManager('./ec/epicollect.ini');
+        $this->auth = new AuthManager($this->cfg);
+        
+        $db_cfg = $this->cfg->settings['database'];
+        $this->db = new EpiCollectDatabaseConnection('mysql', $db_cfg['server'], $db_cfg['database'], $db_cfg['user'] , $db_cfg['password'], $db_cfg['port']);
+        $this->logger = new Logger('Ec2', $this->db);
+        
+        try{
+            $hasManagers = $this->db->connected && count($this->auth->getServerManagers()) > 0;
+        }
+        catch (Exception $err)
+        {
+                $hasManagers = false;
+                $this->logger->write('error', $err->getMessage());
+        }
+
+
+        
+        $this->page_rules = array(
+                    'markers/point' => new PageRule(null, 'getPointMarker'),
+                    'markers/cluster' => new PageRule(null, 'getClusterMarker'),
+    //static file handlers
+                    '' => new PageRule('index.html', 'siteHome'),
+                    'index.html?' => new PageRule('index.html', 'siteHome'),
+                    'privacy.html' => new PageRule('privacy.html', 'defaultHandler'),
+                    '[a-zA-Z0-1]+\.html' => new PageRule(null, 'defaultHandler'),
+                    'images/.+' => new PageRule(),
+                    'favicon\..+' => new PageRule(),
+                    'js/.+' => new PageRule(),
+                    'css/.+' => new PageRule(),
+                    'EpiCollectplus\.apk' => new PageRule(),
+                    'html/projectIFrame.html' => new PageRule(),
+
+    //project handlers
+                    'pc' => new PageRule(null, 'projectCreator', true),
+                    'create' => new PageRule(null, 'createFromXml', true),
+                    'createProject.html' => new PageRule(null, 'createProject', true),
+                    'projectHome.html' => new PageRule(null, 'projectHome'),
+                    'createOrEditForm.html' => new PageRule(null ,'formBuilder', true),
+                    'uploadProject' =>new PageRule(null, 'uploadProjectXML', true),
+                    'getForm' => new PageRule(null, 'getXML',	 true),
+                    'validate' => new PageRule(null, 'validate',false),
+    //'listXML' => new PageRule(null, 'listXML',false),
+    //login handlers
+    //'Auth/loginCallback.php' => new PageRule(null,'loginCallbackHandler'),
+                    'login.php' => new PageRule(null,'loginHandler', false, true),
+                    'loginCallback' => new PageRule(null,'loginCallback', false, true),
+                    'logout' => new PageRule(null, 'logoutHandler'),
+                    'chooseProvider.html' => new PageRule(null, 'chooseProvider'),
+
+    //user handlers
+                    'updateUser.html' => new PageRule(null, 'updateUser', true),
+                    'saveUser' =>new PageRule(null, 'saveUser', true),
+                    'user/manager/?' => new PageRule(null, 'managerHandler', true),
+                    'user/.*@.*?' => new PageRule(null, 'userHandler', true),
+                    'admin' => new PageRule(null, 'admin', true),
+                    'listUsers' => new PageRule(null, 'listUsers', true),
+                    'disableUser' => new PageRule(null, 'disableUser',true),
+                    'enableUser' => new PageRule(null, 'enableUser',true),
+                    'resetPassword' => new PageRule(null, 'resetPassword',true),
+                    'register' => new PageRule(null, 'createAccount', false),
+
+    //generic, dynamic handlers
+                    'getControls' =>  new PageRule(null, 'getControlTypes'),
+                    'uploadFile.php' => new PageRule(null, 'uploadHandlerFromExt'),
+                    'ec/uploads/.+\.(jpe?g|mp4)$' => new PageRule(null, 'getMedia'),
+                    'ec/uploads/.+' => new PageRule(null, null),
+
+                    'uploadTest.html' => new PageRule(null, 'defaultHandler', true),
+                    'test' => new PageRule(null, 'siteTest', false),
+                    'tests.*' => new PageRule(),
+                    'createDB' => new PageRule(null, 'setupDB',true),
+                    'writeSettings' => new PageRule(null, 'writeSettings', true),
+
+    //to API
+                    'projects' => new PageRule(null, 'projectList'),
+                    '[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|/)?' =>new PageRule(null, 'projectHome'),
+                    '[a-zA-Z0-9_-]+/upload' =>new PageRule(null, 'uploadData'),
+                    '[a-zA-Z0-9_-]+/download' =>new PageRule(null, 'downloadData'),
+                    '[a-zA-Z0-9_-]+/summary' =>new PageRule(null, 'projectSummary'),
+                    '[a-zA-Z0-9_-]+/usage' =>  new PageRule(null, 'projectUsage'),
+                    '[a-zA-Z0-9_-]+/formBuilder(\.html)?' =>  new PageRule(null, 'formBuilder', true),
+                    '[a-zA-Z0-9_-]+/editProject.html' =>new PageRule(null, 'editProject', true),
+                    '[a-zA-Z0-9_-]+/update' =>new PageRule(null, 'updateProject', true),
+                    '[a-zA-Z0-9_-]+/manage' =>new PageRule(null, 'updateProject', true),
+                    '[a-zA-Z0-9_-]+/updateStructure' =>new PageRule(null, 'updateXML', true),
+                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__stats' =>new PageRule(null, 'tableStats'),
+                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__activity' =>new PageRule(null, 'formDataLastUpdated'),
+                    '[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
+                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
+                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__getImage' =>new PageRule(null, 'getImage'),
+
+                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|\.kml|\.js|\.css|/)?' => new PageRule(null, 'formHandler'),
+
+            //'[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*/usage' => new  => new PageRule(null, formUsage),
+                    '[^/\.]*/[^/\.]+/[^/\.]*(\.xml|\.json|/)?' => new PageRule(null, 'entryHandler')
+
+            //forTesting
+
+            );
+    }
+    
+    function before_first_request()
+    {
+        if($this->cfg->settings['security']['use_ldap'] && !function_exists('ldap_connect'))
+        {
+            $this->cfg->settings['security']['use_ldap'] = false;
+            $this->cfg->writeConfig();
+        }
+
+
+        if(!array_key_exists('salt',$this->cfg->settings['security']) || trim($this->cfg->settings['security']['salt']) == '')
+        {
+            $str = EpiCollectUtils::genStr();
+            $this->cfg->settings['security']['salt'] = $str;
+            $this->cfg->writeConfig();
+        }
+
+    }
+    
+    function before_request() 
+    {
+        // For Security.
+        if (isset($_REQUEST['_SESSION']))
+        {
+            EpiCollectWebApp::BadRequest();
+            die();
+        }
+        @session_start();
+    }
+    
+    /**
+     * Push a message to be seen by the user when the page reloads or the next page is shown
+     * 
+     * @param string $msg
+     * @param string $type
+     * @return void
+     */
+    static function flash($msg, $type="msg")
+    {
+	if(!array_key_exists("flashes", $_SESSION) || !is_array($_SESSION["flashes"]))
+	{
+		$_SESSION["flashes"] = array();
+	}
+	$nflash = array("msg" => $msg, "type" => $type);
+
+	foreach($_SESSION["flashes"] as $flash)
+	{
+		if($flash == $nflash )return;
+	}
+	array_push($_SESSION["flashes"], $nflash);
+
+    }
+    
+    function process_request()
+    {
+        $url = $this->get_request_url();
+        
+        if(array_key_exists($url, $this->page_rules))
+        {
+                $rule = $this->page_rules[$url];
+        }
+        else
+        {
+
+                foreach(array_keys($this->page_rules) as $key)
+                {
+                        if(preg_match("/^".EpiCollectUtils::regexEscape($key)."$/", $url))
+                        {
+                                //echo $key;
+                                $rule = $this->page_rules[$key];
+                                break;
+                        }
+                }
+        }
+
+        if($rule)
+        {
+                if($rule->secure && !EpiCollectUtils::array_get_if_exists($_SERVER, "HTTPS"))
+                {
+                        $this->https_enabled = false;
+                        try{
+                                $this->https_enabled = file_exists("https://{$_SERVER["HTTP_HOST"]}/{$SITE_ROOT}/{$url}");
+                        }
+                        catch(Exception $e)
+                        {
+                                $this->https_enabled = false;
+                        }
+                        if($this->https_enabled)
+                        {
+                            EpiCollectWebApp::Redirect(sprintf("https://%s/%s/%s",$_SERVER["HTTP_HOST"], $SITE_ROOT, $url));
+                                die();
+                        }
+                }
+                elseif($rule->secure)
+                {
+                        //EpiCollectWebApp::EpiCollectWebApp::flash("Warning: this page is not secure as HTTPS is not avaiable", "err");
+                }
+
+
+                if($rule->login && !$auth->isLoggedIn())
+                {
+                    EpiCollectWebApp::DoNotCache();
+
+                        if(array_key_exists("provider", $_GET))
+                        {
+                                $_SESSION["provider"] = $_GET["provider"];
+                                $auth = new AuthManager();
+                                $frm = $auth->requestlogin($url, $_GET["provider"]);
+                        }
+                        else
+                        {
+                                $auth = new AuthManager();
+                                $frm = $auth->requestlogin($url);
+                        }
+                        echo applyTemplate("./base.html", "./loginbase.html", array( "form" => $frm));
+                        return;
+                }
+                if($rule->redirect)
+                {
+                        $url = $rule->redirect;
+                }
+                if($rule->handler)
+                {
+                        $h = $rule->handler;
+                        //if($h != 'defaultHandler') @session_start();
+                        $h();
+                }
+                else
+                {
+
+                        //static files
+                        EpiCollectWebApp::ContentType($url);
+                        EpiCollectWebApp::CacheFor(100000);
+                        echo file_get_contents("./" . $url);
+                }
+        }
+        else
+        {
+
+                $parts = explode("/", $url);
+                echo applyTemplate("./base.html", "./error.html");
+        }
+    }
+    
+    // Utility and helper functions
+    
+    function get_request_url()
+    {
+        $full_path = (array_key_exists('REQUEST_URI', $_SERVER) ? $_SERVER['REQUEST_URI'] : $_SERVER["HTTP_X_ORIGINAL_URL"]); //strip off site root and GET query
+        $request_url = str_replace($this->site_root, '', $full_path);
+        if(strpos($request_url, '?') !== false)
+        {
+            $only_url = substr($request_url, 0, strpos($request_url, '?'));
+        }
+        else
+        {
+            $only_url = $request_url;
+        }
+    
+        $url = urldecode(trim($only_url, '/'));
+        return $url;
+    }
+    
+    function makeUrl($fn)
+    {
+            $root =  trim($this->site_root, '/');
+            
+            if($root !== '')
+            {
+                return sprintf('http://%s/%s/ec/uploads/%s', $_SERVER['HTTP_HOST'], $root , $fn);
+            }
+            else
+            {
+                return sprintf('http://%s/ec/uploads/%s', $_SERVER['HTTP_HOST'], $fn);
+            }
+    }
     
     /**
      * Tell the App not to prevent caching of the page
@@ -26,7 +340,7 @@ class EpiCollectWebApp
      * Tell the app to cache the response for $secs seconds.
      * @param int $secs
      */
-    static function CacheForm($secs)
+    static function CacheFor($secs)
     {
         if(!is_numeric($secs)) throw new Exception ("Expiry must be an integer");
         header(sprintf('Cache-Control: public; max-age=%s;', $secs));
@@ -62,8 +376,8 @@ class EpiCollectWebApp
     static function Denied($location, $redirect = "/")
     {
         header("HTTP/1.1 403 Access Denied", true, 403);
-        flash(sprintf('You do not have access to %s', $location));
-        EpiCollectWebApp::Redirect($root);
+        EpiCollectWebApp::flash(sprintf('You do not have access to %s', $location));
+        EpiCollectWebApp::Redirect($redirect);
     }
     
     /**
@@ -143,110 +457,69 @@ class EpiCollectWebApp
 
 class EpiCollectUtils
 {
-    static function genStr()
+    static function genStr($length = 22)
     {   
-	$source_str = './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        $source_str = './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        while(strlen($source_str) < $length)
+        {
+            $source_str .= $source_str;
+        }
+	
 	$rand_str = str_shuffle($source_str);
-	$str = substr($rand_str, -22);
+	$str = substr($rand_str, -$length);
 
         unset($source_str, $rand_str);
         
         return $str;
     }
-}
-
-$SITE_ROOT = '';
-
-if( !isset($PHP_UNIT) ) { $PHP_UNIT = false; }
-if( !$PHP_UNIT ){ @session_start(); }
-
-function array_get_if_exists($array, $key)
-{
-	if(array_key_exists($key, $array))
+    
+    static function array_get_if_exists($array, $key)
+    {
+            if(array_key_exists($key, $array))
+            {
+                    return $array[$key];
+            }
+            else
+            {
+                    return null;
+            }
+    }
+    
+    static function escapeTSV($string)
+    {
+	$string = str_replace("\n", '\n', $string);
+	$string = str_replace("\r", "\\r", $string);
+	$string = str_replace("\t", "\\t", $string);
+	return $string;
+    }
+    
+    static function assocToDelimStr($arr, $delim)
+    {
+	$str = implode($delim, array_keys($arr[0])) . "\r\n";
+	for($i = 0; $i < count($arr); $i++)
 	{
-		return $array[$key];
+		$str .= implode($delim, array_values($arr[$i])) . "\r\n";
 	}
-	else
-	{
-		return null;
-	}
+	return $str;
+    }
+
+    static function getTimestamp($fmt = false)
+    {
+            $date = new DateTime("now", new DateTimeZone("UTC"));
+            if( $fmt === false ) return $date->getTimestamp() * 1000;
+            else return $date->format($fmt);
+    }
+
+    static function regexEscape($s)
+    {
+            $s = str_replace("/" , "\/" , $s);
+            return $s;
+    }
+
+
 }
 
-$DIR = str_replace('main.php', '', $_SERVER['SCRIPT_FILENAME']);
-
-if($PHP_UNIT)
-{
-	$DIR = getcwd();
-}
-
-if(strpos($_SERVER['SCRIPT_NAME'], 'main.php'))
-{
-	//IIS
-	$SITE_ROOT = str_replace('/main.php', '', $_SERVER['PHP_SELF']);
-}
-else
-{
-	//Apache
-	$SITE_ROOT = str_replace(array($_SERVER['DOCUMENT_ROOT'], '/main.php') , '', $_SERVER['SCRIPT_FILENAME']);
-}
-
-include (sprintf('%s/utils/HttpUtils.php', $DIR));
-include (sprintf('%s/Auth/AuthManager.php', $DIR));
-include (sprintf('%s/db/dbConnection.php', $DIR));
-
-$url = (array_key_exists('REQUEST_URI', $_SERVER) ? $_SERVER['REQUEST_URI'] : $_SERVER["HTTP_X_ORIGINAL_URL"]); //strip off site root and GET query
-if($SITE_ROOT != '') $url = str_replace($SITE_ROOT, '', $url);
-if(strpos($url, '?')) $url = substr($url, 0, strpos($url, '?'));
-$url = trim($url, '/');
-$url = urldecode($url);
-
-include (sprintf('%s/Classes/PageSettings.php', $DIR));
-include (sprintf('%s/Classes/configManager.php', $DIR));
-include (sprintf('%s/Classes/Logger.php', $DIR));
-
-
-/*
- * Ec Class declatratioions
- */
-
-include(sprintf('%s/Classes/EcProject.php', $DIR));
-include(sprintf('%s/Classes/EcTable.php', $DIR));
-include(sprintf('%s/Classes/EcField.php', $DIR));
-include (sprintf('%s/Classes/EcOption.php', $DIR));
-include (sprintf('%s/Classes/EcEntry.php', $DIR));
-/*
- * End of Ec Class definitions
- */
-global $cfg;
-$cfg = new ConfigManager(sprintf('%s/ec/epicollect.ini', ltrim($DIR, '/')));
-
-if($cfg->settings['security']['use_ldap'] && !function_exists('ldap_connect'))
-{
-	$cfg->settings['security']['use_ldap'] = false;
-	$cfg->writeConfig();
-}
-
-
-if(!array_key_exists('salt',$cfg->settings['security']) || trim($cfg->settings['security']['salt']) == '')
-{
-	$str = EpiCollectUtils::genStr();
-	$cfg->settings['security']['salt'] = $str;
-	$cfg->writeConfig();
-}
-
-function makeUrl($fn)
-{
-	global $SITE_ROOT;
-        $root =  trim($SITE_ROOT, '/');
-        if($root !== '')
-        {
-            return sprintf('http://%s/%s/ec/uploads/%s', $_SERVER['HTTP_HOST'], $root , $fn);
-        }
-        else
-        {
-            return sprintf('http://%s/ec/uploads/%s', $_SERVER['HTTP_HOST'], $fn);
-        }
-}
+//$app = new EpiCollectWebApp();
 
 function handleError($errno, $errstr, $errfile, $errline, array $errcontext)
 {
@@ -261,58 +534,14 @@ function handleError($errno, $errstr, $errfile, $errline, array $errcontext)
 
 set_error_handler('handleError', E_ALL);
 
-$DEFAULT_OUT = $cfg->settings['misc']['default_out'];
-$log = new Logger('Ec2');
-global $db, $auth;
-$db = false;
-$auth = new AuthManager();
-
-
-//try{
-	$db = new dbConnection();
-//}catch(Exception $err){
-	
-//}
 /* class and function definitions */
-
-function escapeTSV($string)
-{
-	$string = str_replace('\n', '\\n', $string);
-	$string = str_replace('\r', '\\r', $string);
-	$string = str_replace('\t', '\\t', $string);
-	return $string;
-}
-
-function flash($msg, $type="msg")
-{
-	if(!array_key_exists("flashes", $_SESSION) || !is_array($_SESSION["flashes"]))
-	{
-		$_SESSION["flashes"] = array();
-	}
-	$nflash = array("msg" => $msg, "type" => $type);
-
-	foreach($_SESSION["flashes"] as $flash)
-	{
-		if($flash == $nflash )return;
-	}
-	array_push($_SESSION["flashes"], $nflash);
-
-}
-
-function redirectTo($url)
-{
-    global $SITE_ROOT;
-    $server = $_SERVER['HTTP_HOST'];
-    $root = trim($SITE_ROOT, '/');
-    EpiCollectWebApp::Redirect(sprintf('http://%s%s/', $server, $root != '' ? ('/' .$root) : ''));
-}
 
 function setupDB()
 {
 	global $cfg, $auth, $SITE_ROOT;
 
 	try{
-		$db = new dbConnection($_POST["un"], $_POST["pwd"]);
+		$db = new EpiCollectDatabaseConnection($_POST["un"], $_POST["pwd"]);
 			
 	}catch(Exception $e)
 	{
@@ -344,33 +573,12 @@ function setupDB()
 		}
 	}
 	
-	flash('Please sign in to register as the first administartor of this server.');
+	EpiCollectWebApp::flash('Please sign in to register as the first administartor of this server.');
 	EpiCollectWebApp::Redirect(sprintf('http://%s%s/login.php' , $_SERVER['HTTP_HOST'], $SITE_ROOT));
 	return;
 }
 
-function assocToDelimStr($arr, $delim)
-{
-	$str = implode($delim, array_keys($arr[0])) . "\r\n";
-	for($i = 0; $i < count($arr); $i++)
-	{
-		$str .= implode($delim, array_values($arr[$i])) . "\r\n";
-	}
-	return $str;
-}
 
-function getTimestamp($fmt = false)
-{
-	$date = new DateTime("now", new DateTimeZone("UTC"));
-	if( !$fmt ) return $date->getTimestamp() * 1000;
-	else return $date->format($fmt);
-}
-
-function regexEscape($s)
-{
-	$s = str_replace("/" , "\/" , $s);
-	return $s;
-}
 
 function applyTemplate($baseUri, $targetUri = false, $templateVars = array())
 {
@@ -491,7 +699,7 @@ function formDataLastUpdated()
 {
     global $url,  $log, $auth;
 
-	$http_accept = array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
+	$http_accept = EpiCollectUtils::array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
 	$format = ($http_accept ? substr($http_accept, strpos($http_accept, '/') + 1) : '');
 	$ext = substr($url, strrpos($url, ".") + 1);
 	$format = $ext != "" ? $ext : $format;
@@ -560,12 +768,12 @@ function createAccount()
         if($cfg->settings['misc']['public_server'] === "true")
         {
             createUser();
-            flash("Account created, please log in.");
+            EpiCollectWebApp::flash("Account created, please log in.");
             EpiCollectWebApp::Redirect(sprintf('http://%s/%s/login.php', $server, $root));
         }
         else
         {
-            flash("This server is not public", "err");
+            EpiCollectWebApp::flash("This server is not public", "err");
             EpiCollectWebApp::Redirect(sprintf('http://%s/%s/', $server, $root));
         }   
     } else {
@@ -615,14 +823,14 @@ function loginCallback()
     EpiCollectWebApp::DoNotCache();
      
 	global $auth, $cfg, $db;
-        $provider = array_get_if_exists($_POST, 'provider');
+        $provider = EpiCollectUtils::array_get_if_exists($_POST, 'provider');
         if(!$provider)
-            $provider = array_get_if_exists($_SESSION, 'provider');
+            $provider = EpiCollectUtils::array_get_if_exists($_SESSION, 'provider');
         else {
             $_SESSION['provider'] = $provider;
         }
 
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	if(!$auth) $auth = new AuthManager();
 	$auth->callback($provider);
 }
@@ -754,13 +962,13 @@ function projectHome()
 
 	if( !$prj->isPublic && !$loggedIn && !preg_match('/\.xml$/',$url) )
 	{
-		flash('This is a private project, please log in to view the project.');
+		EpiCollectWebApp::flash('This is a private project, please log in to view the project.');
 		loginHandler($url);
 		return;
 	}
 	else if( !$prj->isPublic && $role < 2 && !preg_match('/\.xml$/',$url) )
 	{
-		flash(sprintf('You do not have permission to view %s.', $prj->name));
+		EpiCollectWebApp::flash(sprintf('You do not have permission to view %s.', $prj->name));
 		EpiCollectWebApp::Redirect(sprintf('http://%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT));
 		return;
 	}
@@ -924,7 +1132,7 @@ function siteTest()
 		if(array_key_exists("redir", $_GET) && $_GET["redir"] === "true") $res["redirMsg"] = "	<p class=\"message\">You have been brought to this page because of a fatal error opening the home page</p>";
 		if(array_key_exists("redir", $_GET) && $_GET["redir"] === "pwd") $res["redirMsg"] = "	<p class=\"message\">The username and password you entered were incorrect, please try again.</p>";
 		
-		if(!$db) $db = new dbConnection();
+		if(!$db) $db = new EpiCollectDatabaseConnection();
 		
 		
 		if($db->connected)
@@ -1115,8 +1323,8 @@ function siteTest()
 function getClusterMarker()
 {
 	include '/utils/markers.php';
-	$colours = array_get_if_exists($_GET, "colours");
-	$counts = array_get_if_exists($_GET, "counts");
+	$colours = EpiCollectUtils::array_get_if_exists($_GET, "colours");
+	$counts = EpiCollectUtils::array_get_if_exists($_GET, "counts");
 	
 	$colours = trim($colours, '|');
 	$counts = trim($counts, '|');
@@ -1148,8 +1356,8 @@ function getPointMarker()
 {
 	include "./utils/markers.php";
 	
-	$colour = array_get_if_exists($_GET, "colour");
-	$shape = array_get_if_exists($_GET, "shape");
+	$colour = EpiCollectUtils::array_get_if_exists($_GET, "colour");
+	$shape = EpiCollectUtils::array_get_if_exists($_GET, "shape");
 	if(!$colour) $colour = "FF0000";
 	$colour = trim($colour, "#");
         
@@ -1242,8 +1450,7 @@ function uploadData()
 			foreach($_FILES as $file){
 					
 				if(preg_match("/.+\.xml$/", $file["name"])){
-					$ts = new DateTime("now", new DateTimeZone("UTC"));
-					$ts = $ts->getTimestamp();
+					$ts = EpiCollectUtils::getTimestamp();
 						
 
 					$fn = "$ts-{$file["name"]}";
@@ -1317,8 +1524,7 @@ function uploadData()
 				}
 				else
 				{
-					$d = new DateTime('now', new DateTimeZone('UTC'));
-					$ent->created = $d->getTimestamp();
+					$ent->created = EpiCollectUtils::getTimestamp();
 				}
 				$ent->project = $prj;
 					
@@ -1333,12 +1539,12 @@ function uploadData()
 						$bearing = "{$key}_bearing";
 						
 						$ent->values[$key] = array(
-							'latitude' => (string) array_get_if_exists($_POST, $lat),
-							'longitude' => (string)array_get_if_exists($_POST,$lon),
-							'altitude' => (string)array_get_if_exists($_POST,$alt),
-							'accuracy' => (string) array_get_if_exists($_POST,$acc), 
-							'provider' => (string)array_get_if_exists($_POST,$src),
-							'bearing' =>  (string)array_get_if_exists($_POST,$bearing),
+							'latitude' => (string) EpiCollectUtils::array_get_if_exists($_POST, $lat),
+							'longitude' => (string)EpiCollectUtils::array_get_if_exists($_POST,$lon),
+							'altitude' => (string)EpiCollectUtils::array_get_if_exists($_POST,$alt),
+							'accuracy' => (string) EpiCollectUtils::array_get_if_exists($_POST,$acc), 
+							'provider' => (string)EpiCollectUtils::array_get_if_exists($_POST,$src),
+							'bearing' =>  (string)EpiCollectUtils::array_get_if_exists($_POST,$bearing),
 						);
 					}
 					else if(!array_key_exists($key, $_POST))
@@ -1440,9 +1646,9 @@ function downloadData()
 	$root =substr($_SERVER["SCRIPT_FILENAME"], 0, $pos);
 	
 	$wwwroot = "http://{$_SERVER["HTTP_HOST"]}$SITE_ROOT";
-	$startTbl = (array_key_exists('select_table', $_GET) ? array_get_if_exists($_GET, "table") : false);
-	$endTbl = (array_key_exists('select_table', $_GET) ? array_get_if_exists($_GET, "select_table") :  array_get_if_exists($_GET, "table"));
-	$entry = array_get_if_exists($_GET, "entry");
+	$startTbl = (array_key_exists('select_table', $_GET) ? EpiCollectUtils::array_get_if_exists($_GET, "table") : false);
+	$endTbl = (array_key_exists('select_table', $_GET) ? EpiCollectUtils::array_get_if_exists($_GET, "select_table") :  EpiCollectUtils::array_get_if_exists($_GET, "table"));
+	$entry = EpiCollectUtils::array_get_if_exists($_GET, "entry");
 	$dataType = (array_key_exists('type', $_GET) ? $_GET["type"] : "data");
 	$xml = !(array_key_exists('xml', $_GET) && $_GET['xml'] === "false");
 
@@ -1508,7 +1714,7 @@ function downloadData()
 		
 	//for each main table we're intersted in (i.e. main tables between stat and end table)
 	//$ts = new DateTime("now", new DateTimeZone("UTC"));
-	//$ts = $ts->getTimestamp();
+	//$ts = $ts->EpiCollectUtils::getTimestamp();
 	if( $dataType == 'data' && $xml )
 	{
             EpiCollectWebApp::ContentType('xml');
@@ -1639,7 +1845,7 @@ function downloadData()
 							}
 							else
 							{
-								fwrite($tsv,  "$fld$delim" . escapeTSV($ent[$fld]). $delim);
+								fwrite($tsv,  "$fld$delim" . EpiCollectUtils::escapeTSV($ent[$fld]). $delim);
 							}
 						}
 						//fwrite($tsv, $ent);
@@ -1796,7 +2002,7 @@ function formHandler()
 {
 	global $url,  $log, $auth;
 
-	$http_accept = array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
+	$http_accept = EpiCollectUtils::array_get_if_exists($_SERVER, 'HTTP_ACCEPT');
 	$format = ($http_accept ? substr($http_accept, strpos($http_accept, '/') + 1) : '');
 	$ext = substr($url, strrpos($url, ".") + 1);
 	$format = $ext != "" ? $ext : $format;
@@ -1845,13 +2051,13 @@ function formHandler()
 		EpiCollectWebApp::DoNotCache();
 		
 		
-		$_f = array_get_if_exists($_FILES, "upload");
+		$_f = EpiCollectUtils::array_get_if_exists($_FILES, "upload");
 		
 		if( $_f )
 		{
 			if($_f['tmp_name'] == '')
 			{
-				flash('The file is too big to upload', 'err');
+				EpiCollectWebApp::flash('The file is too big to upload', 'err');
 			}
 			else
 			{
@@ -1874,7 +2080,7 @@ function formHandler()
 					flash ("Upload Complete");
 				}catch(Exception $ex)
 				{
-					flash($ex->getMessage(), 'err');
+					EpiCollectWebApp::flash($ex->getMessage(), 'err');
 				}
 			}
 		}
@@ -1884,7 +2090,7 @@ function formHandler()
 				
 			$ent->created = $_POST["created"];
 			$ent->deviceId = $_POST["DeviceID"];
-			$ent->uploaded = getTimestamp('Y-m-d H:i:s');
+			$ent->uploaded = EpiCollectUtils::getTimestamp('Y-m-d H:i:s');
 			$ent->user = 0;
 			
 			foreach( array_keys($ent->values) as $key )
@@ -1937,7 +2143,7 @@ function formHandler()
                             
                             EpiCollectWebApp::ContentType('json');
 				
-				$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object");
+				$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object");
 				if($res !== true) die($res);
 						
 				$i = 0;			
@@ -1958,7 +2164,7 @@ function formHandler()
 				if(array_key_exists("mode", $_GET) && $_GET["mode"] == "list")
 				{
 					echo "<entries>";
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "xml");
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "xml");
 					if($res !== true) die($res);
 					while($ent = $prj->tables[$frmName]->recieve(1, true))
 					{
@@ -2020,12 +2226,11 @@ function formHandler()
 				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
 				$filename = sprintf('ec/uploads/%s_%s_%s%s.csv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
 				if(!file_exists($filename))
-				{
-					//ob_implicit_flush(false);
+                                {
 					$fp = fopen($filename, 'w+');
-					//$arr = $prj->tables[$frmName]->get(false, $offset, $limit);
-					//$arr = $arr[$frmName];
-					//echo assocToDelimStr($arr, ",");
+					
+					
+					
 					$headers = array_merge(array('DeviceID','created','lastEdited','uploaded'), array_keys($prj->tables[$frmName]->fields));
 					$_off = 4;
 										
@@ -2059,7 +2264,7 @@ function formHandler()
 					}
 					
 					fwrite($fp, sprintf("\"%s\"\n", implode('","', $headers)));
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object", true);
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object", true);
 					if($res !== true) die($res);
 					
 					$count_h = count($real_flds);
@@ -2180,7 +2385,7 @@ function formHandler()
 					}
 					
 					fwrite($fp, sprintf("\"%s\"\n", implode("\"\t\"", $headers)));
-					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, array_get_if_exists($_GET,"sort"), array_get_if_exists($_GET,"dir"), false, "object", true);
+					$res = $prj->tables[$frmName]->ask($_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object", true);
 					if($res !== true) die($res);
 					
 					$count_h = count($real_flds);
@@ -2389,7 +2594,7 @@ function formHandler()
 	
 	
 		
-	$mapScript = $prj->tables[$frmName]->hasGps() ? "<script type=\"text/javascript\" src=\"" . (array_get_if_exists($_SERVER, 'HTTPS') ? 'https' : 'http') . "://maps.google.com/maps/api/js?sensor=false\"></script>
+	$mapScript = $prj->tables[$frmName]->hasGps() ? "<script type=\"text/javascript\" src=\"" . (EpiCollectUtils::array_get_if_exists($_SERVER, 'HTTPS') ? 'https' : 'http') . "://maps.google.com/maps/api/js?sensor=false\"></script>
 	<script type=\"text/javascript\" src=\"{$SITE_ROOT}/js/markerclusterer.js\"></script>" : "";
 	$vars = array(
 			"prevForm" => $p,
@@ -2507,11 +2712,11 @@ function entryHandler()
 	}
 	else if($_SERVER["REQUEST_METHOD"] == "GET")
 	{
-		$val = array_get_if_exists($_GET, 'term');
-		$do  = array_get_if_exists($_GET, 'validate');
-		$key_from = array_get_if_exists($_GET, 'key_from');
-		$secondary_field = array_get_if_exists($_GET, 'secondary_field');
-		$secondary_value = array_get_if_exists($_GET, 'secondary_value');
+		$val = EpiCollectUtils::array_get_if_exists($_GET, 'term');
+		$do  = EpiCollectUtils::array_get_if_exists($_GET, 'validate');
+		$key_from = EpiCollectUtils::array_get_if_exists($_GET, 'key_from');
+		$secondary_field = EpiCollectUtils::array_get_if_exists($_GET, 'secondary_field');
+		$secondary_value = EpiCollectUtils::array_get_if_exists($_GET, 'secondary_value');
 		ini_set('max_execution_time', 60);
 		if($entId == 'title')
 		{
@@ -2548,40 +2753,40 @@ function updateUser()
 	
 	if($_SERVER["REQUEST_METHOD"] == "POST")
 	{
-		$pwd = array_get_if_exists($_POST, "password");
-		$con = array_get_if_exists($_POST, "confirmpassword");
+		$pwd = EpiCollectUtils::array_get_if_exists($_POST, "password");
+		$con = EpiCollectUtils::array_get_if_exists($_POST, "confirmpassword");
 		
 		$change = true;
 		
 		if(!$pwd || !$con)
 		{
 			$change = false;
-			flash("Password not changed, password was blank.", "err");
+			EpiCollectWebApp::flash("Password not changed, password was blank.", "err");
 		}
 		
 		if($pwd != $con)
 		{
 			$change = false;
-			flash("Password not changed, passwords did not match.", "err");
+			EpiCollectWebApp::flash("Password not changed, passwords did not match.", "err");
 		}
 		
 		
 		if(strlen($pwd) < 8) {
 			$change = false;
-			flash("Password not changed, password was shorter than 8 characters.", "err");
+			EpiCollectWebApp::flash("Password not changed, password was shorter than 8 characters.", "err");
 		}
 		
 		if(!preg_match("/^.*(?=.{8,})(?=.*\d)(?=.*[a-zA-Z]).*$/", $pwd))
 		{
 			$change = false;
-			flash("Password not changed, password must be longer than 8 characters and contain at least one letter and at least one number.", "err");
+			EpiCollectWebApp::flash("Password not changed, password must be longer than 8 characters and contain at least one letter and at least one number.", "err");
 		}
 		
 		if($auth->setPassword($auth->getEcUserId(), $_POST["password"]))
 		{
-			flash("Password changed");
+			EpiCollectWebApp::flash("Password changed");
 		}else {
-			flash("Password not changed.", "err");
+			EpiCollectWebApp::flash("Password not changed.", "err");
 		}
 	}
 	
@@ -2590,7 +2795,7 @@ function updateUser()
 	$username = $auth->getUserName();
 	$is_not_local = $_SESSION['provider'] != 'LOCAL';
 	
-	if($is_not_local) flash('You cannot update user information for Open ID or LDAP users unless you do it throught your Open ID or LDAP provider','err');
+	if($is_not_local) EpiCollectWebApp::flash('You cannot update user information for Open ID or LDAP users unless you do it throught your Open ID or LDAP provider','err');
 		
 	echo applyTemplate("base.html", "./updateUser.html", array(
 			"firstName" => $name[0], 
@@ -2668,7 +2873,7 @@ function createFromXml()
 	
 	if(!$prj->name || $prj->name == "")
 	{
-		flash("No project name provided");
+		EpiCollectWebApp::flash("No project name provided");
 		EpiCollectWebApp::Redirect("http://$server/$root/createProject.html");
 	}
 	
@@ -2757,10 +2962,10 @@ function updateXML()
 		$prj->publicSubmission = true;
 	}
 
-	if(!array_get_if_exists($_POST, "skipdesc"))
+	if(!EpiCollectUtils::array_get_if_exists($_POST, "skipdesc"))
 	{	
-		$prj->description = array_get_if_exists($_POST, "description");
-		$prj->image = array_get_if_exists($_POST, "projectImage");
+		$prj->description = EpiCollectUtils::array_get_if_exists($_POST, "description");
+		$prj->image = EpiCollectUtils::array_get_if_exists($_POST, "projectImage");
 	}
 	
 	if(array_key_exists("listed", $_REQUEST)) $prj->isListed = $_REQUEST["listed"] == "true";
@@ -2839,10 +3044,10 @@ function projectCreator()
 	{
 		move_uploaded_file($_FILES["xml"]["tmp_name"], "ec/xml/{$_FILES["xml"]["name"]}");
 	}
-	if(array_get_if_exists($_REQUEST, "json"))
+	if(EpiCollectUtils::array_get_if_exists($_REQUEST, "json"))
 	{
 		$n = '';
-		echo validate("{$_FILES["xml"]["name"]}", NULL, $n, array_get_if_exists($_POST, 'update'));
+		echo validate("{$_FILES["xml"]["name"]}", NULL, $n, EpiCollectUtils::array_get_if_exists($_POST, 'update'));
 	}
 	else
 	{
@@ -2860,7 +3065,7 @@ function validate($fn = NULL, $xml = NULL, &$name = NULL, $update = false, $retu
 	$isValid = true;
 	$msgs = array();
 
-	if(!$fn) $fn = array_get_if_exists($_GET, "filename");
+	if(!$fn) $fn = EpiCollectUtils::array_get_if_exists($_GET, "filename");
 	
 	if($fn && !$xml)
 	{		
@@ -3040,7 +3245,7 @@ function validate($fn = NULL, $xml = NULL, &$name = NULL, $update = false, $retu
 	{
 		return count($msgs) == 0 ? true : str_replace('"', '\"', implode("\",\"", $msgs));
 	}
-	elseif( array_get_if_exists($_REQUEST, "json") )
+	elseif( EpiCollectUtils::array_get_if_exists($_REQUEST, "json") )
 	{
 		echo "{\"valid\" : " . (count($msgs) == 0 ? "true" : "false") . ", \"msgs\" : [ \"" . str_replace('"', '\"', implode("\",\"", $msgs))  . "\" ], \"name\" : \"$name\", \"file\" :\"$fn\" }";
 	}
@@ -3057,7 +3262,7 @@ function admin()
 
 	if(count($auth->getServerManagers()) > 0 && $auth->isLoggedIn() && !$auth->isServerManager())
 	{
-		flash("Configuration only available to server managers", "err");
+		EpiCollectWebApp::flash("Configuration only available to server managers", "err");
 			
 		EpiCollectWebApp::Redirect($SITE_ROOT);
 		return;
@@ -3099,15 +3304,15 @@ function createUser()
 
 	if($cfg->settings["security"]["use_local"] != "true")
 	{
-		flash("This server is not configured to user Local Accounts", "err");
+		EpiCollectWebApp::flash("This server is not configured to user Local Accounts", "err");
 	}
 	elseif($auth->createUser($_POST["username"], $_POST["password"], $_POST["email"], $_POST["fname"], $_POST["lname"],"en"))
 	{
-		flash("User Added");
+		EpiCollectWebApp::flash("User Added");
 	}
 	else
 	{
-		flash("Could not create the user", "err");
+		EpiCollectWebApp::flash("Could not create the user", "err");
 	}
 
 	EpiCollectWebApp::Redirect("http://{$_SERVER["HTTP_HOST"]}$SITE_ROOT/admin");
@@ -3123,22 +3328,22 @@ function managerHandler()
 		if(array_key_exists("remove", $_POST) && $_POST["remove"] == "Remove")
 		{
 			$auth->removeServerManager($_POST["email"]);
-			flash("{$_POST["email"]} is no longer a server manager.");
+			EpiCollectWebApp::flash("{$_POST["email"]} is no longer a server manager.");
 		}
 		else
 		{
 			$x = $auth->makeServerManager($_POST["email"]);
 			if($x === 1)
 			{
-				flash("{$_POST["email"]} is now a server manager.");
+				EpiCollectWebApp::flash("{$_POST["email"]} is now a server manager.");
 			}
 			elseif ($x === -1)
 			{
-				flash("{$_POST["email"]} is already a server manager.");
+				EpiCollectWebApp::flash("{$_POST["email"]} is already a server manager.");
 			}
 			else
 			{
-				flash("Could not find user {$_POST["email"]}. ($x)", "err");
+				EpiCollectWebApp::flash("Could not find user {$_POST["email"]}. ($x)", "err");
 			}
 		}
 	}
@@ -3188,11 +3393,11 @@ function updateProject()
 		
 		if($_SERVER["REQUEST_METHOD"] == "POST")
 		{
-			$xml = array_get_if_exists($_POST, "xml");
-			$managers = array_get_if_exists($_POST, "managers");
-			$curators = array_get_if_exists($_POST, "curators");
-			$public = array_get_if_exists($_POST, "public");
-			$listed = array_get_if_exists($_POST, "listed");
+			$xml = EpiCollectUtils::array_get_if_exists($_POST, "xml");
+			$managers = EpiCollectUtils::array_get_if_exists($_POST, "managers");
+			$curators = EpiCollectUtils::array_get_if_exists($_POST, "curators");
+			$public = EpiCollectUtils::array_get_if_exists($_POST, "public");
+			$listed = EpiCollectUtils::array_get_if_exists($_POST, "listed");
 
 			
 			
@@ -3208,16 +3413,16 @@ function updateProject()
 				$drty = true;
 			}
 			
-			echo 'description ' . $prj->description . ' ' .array_get_if_exists($_POST, "description") ;
-			if($prj->description != array_get_if_exists($_POST, "description"))
+			echo 'description ' . $prj->description . ' ' .EpiCollectUtils::array_get_if_exists($_POST, "description") ;
+			if($prj->description != EpiCollectUtils::array_get_if_exists($_POST, "description"))
 			{
 				
-				$prj->description = array_get_if_exists($_POST, "description");
+				$prj->description = EpiCollectUtils::array_get_if_exists($_POST, "description");
 				$drty = true;
 			}
-			if($prj->image != array_get_if_exists($_POST, "projectImage"))
+			if($prj->image != EpiCollectUtils::array_get_if_exists($_POST, "projectImage"))
 			{
-				$prj->image = array_get_if_exists($_POST, "projectImage");
+				$prj->image = EpiCollectUtils::array_get_if_exists($_POST, "projectImage");
 				$drty = true;
 			}
 			
@@ -3475,7 +3680,7 @@ function getImage()
 	$extStart = strrpos($url, '/');
 	$frmName = rtrim(substr($url, $pNameEnd + 1, ($extStart > 0 ?  $extStart : strlen($url)) - $pNameEnd - 1), "/");
 	
-	$picName = array_get_if_exists($_GET, 'img');
+	$picName = EpiCollectUtils::array_get_if_exists($_GET, 'img');
 	
 	EpiCollectWebApp::ContentType('jpeg');
 	
@@ -3484,7 +3689,7 @@ function getImage()
 		$tn = sprintf('./ec/uploads/%s~tn~%s', $prj->name, $picName);
 		$full = sprintf('./ec/uploads/%s~%s', $prj->name, $picName);
 		
-		$thumbnail = array_get_if_exists($_GET, 'thumbnail') === 'true';
+		$thumbnail = EpiCollectUtils::array_get_if_exists($_GET, 'thumbnail') === 'true';
 		
 		$raw_not_tn = str_replace('~tn~', '~', $picName);
 		
@@ -3579,7 +3784,7 @@ function writeSettings()
 		
 	$cfg->writeConfig();
 	EpiCollectWebApp::DoNotCache();
-	if(array_get_if_exists($_POST, "edit"))
+	if(EpiCollectUtils::array_get_if_exists($_POST, "edit"))
 	{
 		EpiCollectWebApp::Redirect("$SITE_ROOT/admin");
 	}
@@ -3645,7 +3850,7 @@ function enableUser()
 {
 	global $auth;
 	
-	$user = array_get_if_exists($_POST, "user");
+	$user = EpiCollectUtils::array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
@@ -3674,7 +3879,7 @@ function disableUser()
 {
 	global $auth;
 	
-	$user = array_get_if_exists($_POST, "user");
+	$user = EpiCollectUtils::array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user)
 	{
@@ -3701,7 +3906,7 @@ function resetPassword()
 {
 	global $auth;
 	
-	$user = array_get_if_exists($_POST, "user");
+	$user = EpiCollectUtils::array_get_if_exists($_POST, "user");
 	
 	if($auth->isLoggedIn() && $auth->isServerManager() && $_SERVER["REQUEST_METHOD"] == "POST" && $user && preg_match("/[0-9]+/", $user))
 	{
@@ -3765,194 +3970,18 @@ function userHandler()
 * as log files which may contain restricted data)
 */
 
-try{
-	$hasManagers = $db->connected && count($auth->getServerManagers()) > 0;
-}catch (Exception $err)
-{
-	$hasManagers = false;
-}
 
-$pageRules = array(
-		
-		'markers/point' => new PageRule(null, 'getPointMarker'),
-		'markers/cluster' => new PageRule(null, 'getClusterMarker'),
-//static file handlers
-		'' => new PageRule('index.html', 'siteHome'),
-		'index.html?' => new PageRule('index.html', 'siteHome'),
-		'privacy.html' => new PageRule('privacy.html', 'defaultHandler'),
-		'[a-zA-Z0-1]+\.html' => new PageRule(null, 'defaultHandler'),
-		'images/.+' => new PageRule(),
-		'favicon\..+' => new PageRule(),
-		'js/.+' => new PageRule(),
-		'css/.+' => new PageRule(),
-                'EpiCollectplus\.apk' => new PageRule(),
-		'html/projectIFrame.html' => new PageRule(),
 
-//project handlers
-		'pc' => new PageRule(null, 'projectCreator', true),
-		'create' => new PageRule(null, 'createFromXml', true),
-		'createProject.html' => new PageRule(null, 'createProject', true),
-		'projectHome.html' => new PageRule(null, 'projectHome'),
-		'createOrEditForm.html' => new PageRule(null ,'formBuilder', true),
-		'uploadProject' =>new PageRule(null, 'uploadProjectXML', true),
-		'getForm' => new PageRule(null, 'getXML',	 true),
-		'validate' => new PageRule(null, 'validate',false),
-//'listXML' => new PageRule(null, 'listXML',false),
-//login handlers
-//'Auth/loginCallback.php' => new PageRule(null,'loginCallbackHandler'),
-		'login.php' => new PageRule(null,'loginHandler', false, true),
-		'loginCallback' => new PageRule(null,'loginCallback', false, true),
-		'logout' => new PageRule(null, 'logoutHandler'),
-		'chooseProvider.html' => new PageRule(null, 'chooseProvider'),
 
-//user handlers
-		'updateUser.html' => new PageRule(null, 'updateUser', true),
-		'saveUser' =>new PageRule(null, 'saveUser', true),
-		'user/manager/?' => new PageRule(null, 'managerHandler', true),
-		'user/.*@.*?' => new PageRule(null, 'userHandler', true),
-		'admin' => new PageRule(null, 'admin', $hasManagers),
-		'listUsers' => new PageRule(null, 'listUsers', $hasManagers),
-		'disableUser' => new PageRule(null, 'disableUser',true),
-		'enableUser' => new PageRule(null, 'enableUser',true),
-		'resetPassword' => new PageRule(null, 'resetPassword',true),
-                'register' => new PageRule(null, 'createAccount', false),
-		
-//generic, dynamic handlers
-		'getControls' =>  new PageRule(null, 'getControlTypes'),
-		'uploadFile.php' => new PageRule(null, 'uploadHandlerFromExt'),
-		'ec/uploads/.+\.(jpe?g|mp4)$' => new PageRule(null, 'getMedia'),
-		'ec/uploads/.+' => new PageRule(null, null),
-	
-		'uploadTest.html' => new PageRule(null, 'defaultHandler', true),
-		'test' => new PageRule(null, 'siteTest', false),
-		'tests.*' => new PageRule(),
-		'createDB' => new PageRule(null, 'setupDB',$hasManagers),
-		'writeSettings' => new PageRule(null, 'writeSettings', $hasManagers),
-		
-//to API
-		'projects' => new PageRule(null, 'projectList'),
-		'[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|/)?' =>new PageRule(null, 'projectHome'),
-		'[a-zA-Z0-9_-]+/upload' =>new PageRule(null, 'uploadData'),
-		'[a-zA-Z0-9_-]+/download' =>new PageRule(null, 'downloadData'),
-		'[a-zA-Z0-9_-]+/summary' =>new PageRule(null, 'projectSummary'),
-		'[a-zA-Z0-9_-]+/usage' =>  new PageRule(null, 'projectUsage'),
-		'[a-zA-Z0-9_-]+/formBuilder(\.html)?' =>  new PageRule(null, 'formBuilder', true),
-		'[a-zA-Z0-9_-]+/editProject.html' =>new PageRule(null, 'editProject', true),
-		'[a-zA-Z0-9_-]+/update' =>new PageRule(null, 'updateProject', true),
-		'[a-zA-Z0-9_-]+/manage' =>new PageRule(null, 'updateProject', true),
-		'[a-zA-Z0-9_-]+/updateStructure' =>new PageRule(null, 'updateXML', true),
-		'[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__stats' =>new PageRule(null, 'tableStats'),
-                '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__activity' =>new PageRule(null, 'formDataLastUpdated'),
-		'[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
-		'[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
-		'[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__getImage' =>new PageRule(null, 'getImage'),
-		
-		'[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|\.kml|\.js|\.css|/)?' => new PageRule(null, 'formHandler'),
-
-//'[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*/usage' => new  => new PageRule(null, formUsage),
-		'[^/\.]*/[^/\.]+/[^/\.]*(\.xml|\.json|/)?' => new PageRule(null, 'entryHandler')
-
-//forTesting
-
-);
 
 //$d = new DateTime();
 //$i = $dat->format("su") - $d->format("su");
 
-$rule = false;
 
 /*Cookie policy handler*/
 
-if(!array_get_if_exists($_SESSION, 'SEEN_COOKIE_MSG')) {
-	flash(sprintf('EpiCollectPlus only uses first party cookies to make the site work. We do not add or read third-party cookies. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $SITE_ROOT));
-	$_SESSION['SEEN_COOKIE_MSG'] = true;
-}
-
-
-if(array_key_exists($url, $pageRules))
-{
-	$rule = $pageRules[$url];
-}
-else
-{
-
-	foreach(array_keys($pageRules) as $key)
-	{
-		if(preg_match("/^".regexEscape($key)."$/", $url))
-		{
-			//echo $key;
-			$rule = $pageRules[$key];
-			break;
-		}
-	}
-}
-
-if($rule)
-{
-	if($rule->secure && !array_get_if_exists($_SERVER, "HTTPS"))
-	{
-		$https_enabled = false;
-		try{
-			$https_enabled = file_exists("https://{$_SERVER["HTTP_HOST"]}/{$SITE_ROOT}/{$url}");
-		}
-		catch(Exception $e)
-		{
-			$https_enabled = false;
-		}
-		if($https_enabled)
-		{
-                    EpiCollectWebApp::Redirect(sprintf("https://%s/%s/%s",$_SERVER["HTTP_HOST"], $SITE_ROOT, $url));
-			die();
-		}
-	}
-	elseif($rule->secure)
-	{
-		//flash("Warning: this page is not secure as HTTPS is not avaiable", "err");
-	}
-
-
-	if($rule->login && !$auth->isLoggedIn())
-	{
-            EpiCollectWebApp::DoNotCache();
-			
-		if(array_key_exists("provider", $_GET))
-		{
-			$_SESSION["provider"] = $_GET["provider"];
-			$auth = new AuthManager();
-			$frm = $auth->requestlogin($url, $_GET["provider"]);
-		}
-		else
-		{
-			$auth = new AuthManager();
-			$frm = $auth->requestlogin($url);
-		}
-		echo applyTemplate("./base.html", "./loginbase.html", array( "form" => $frm));
-		return;
-	}
-	if($rule->redirect)
-	{
-		$url = $rule->redirect;
-	}
-	if($rule->handler)
-	{
-		$h = $rule->handler;
-		//if($h != 'defaultHandler') @session_start();
-		$h();
-	}
-	else
-	{
-			
-		//static files
-		EpiCollectWebApp::ContentType($url);
-		EpiCollectWebApp::CacheForm(100000);
-		echo file_get_contents("./" . $url);
-	}
-}
-else
-{
-
-	$parts = explode("/", $url);
-	echo applyTemplate("./base.html", "./error.html");
-}
-
+//if(!EpiCollectUtils::array_get_if_exists($_SESSION, 'SEEN_COOKIE_MSG')) {
+//	EpiCollectWebApp::flash(sprintf('EpiCollectPlus only uses first party cookies to make the site work. We do not add or read third-party cookies. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $SITE_ROOT));
+//	$_SESSION['SEEN_COOKIE_MSG'] = true;
+//}
 ?>

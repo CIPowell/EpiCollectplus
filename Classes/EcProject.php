@@ -50,7 +50,7 @@ class EcProject{
 		
 		public function fetch()
 		{
-			$db = new dbConnection();
+			$db = new EpiCollectDatabaseConnection();
 			if($this->name != "")
 			{
 				//$res = $db->exec_sp("getProject", array($this->name));
@@ -67,7 +67,7 @@ class EcProject{
 					$this->allowDownloadEdits = true;
 				}
 				
-				$db = new dbConnection();
+				$db = new EpiCollectDatabaseConnection();
 				//get forms	
 				$res = $db->exec_sp("getForms", array($this->name));
 				
@@ -365,7 +365,7 @@ class EcProject{
 			
 			global $auth;
 			
-			$db = new dbConnection();
+			$db = new EpiCollectDatabaseConnection();
 			
 			$sql = "SELECT upp.role, u.email FROM userprojectpermission upp join user u on upp.user = u.idUsers WHERE upp.role = $lvl and upp.project = {$this->id}";
 			$res = $db->do_query($sql);
@@ -421,7 +421,7 @@ class EcProject{
 			global $auth;
 			$emails = rtrim(strtolower($emails), ","); //as emails are case insensitive we will make them all lowercase to make comparison easier
 			
-			$db = new dbConnection();
+			$db = new EpiCollectDatabaseConnection();
 			if($this->checkPermission($auth->getEcUserId()) == 3)
 			{
                             //add any new emails
@@ -435,7 +435,7 @@ class EcProject{
                             $res = $db->do_query($sql);
                             if($res===true)
                             {
-                                            $db = new dbConnection();
+                                            $db = new EpiCollectDatabaseConnection();
                                             $emails = str_replace(",", "','", $emails);
                                             $sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
                                             $res = $db->do_query($sql);
@@ -486,7 +486,7 @@ class EcProject{
 		public function post()
 		{
 			global $auth;
-			$db=new dbConnection();
+			$db=new EpiCollectDatabaseConnection();
 
 			if( $this->submission_id == '' ) $this->submission_id = str_replace($this->name, ' ', '_');
 			
@@ -603,7 +603,7 @@ class EcProject{
 				
 				if(!$this->isPublic && $this->checkPermission($auth->getEcUserId()) < 2) return "You do not have permission to view this data";
 				
-				$db = new dbConnection();
+				$db = new EpiCollectDatabaseConnection();
 				$qry = "SELECT f.idForm, f.Name, count(e.idEntry) as entries, count(distinct e.user) as users, count(distinct deviceId) as devices from form f Left JOIN entry e on e.form = f.idForm where f.projectName = '{$this->name}' group by f.idForm, f.Name";
 				$res = $db->do_query($qry);
 				
@@ -652,7 +652,7 @@ class EcProject{
 			}
 			$sql = "SELECT a.date as dateField, IFNULL(b.userTotal, 0) as userTotal, IFNULL(b.entryTotal, 0)  as entryTotal FROM (SELECT '" . implode("' as date UNION SELECT '", $periods) . "') a $sql";
 			
-			$db = new dbConnection();
+			$db = new EpiCollectDatabaseConnection();
 			$res = $db->do_query($sql);
 			if($res === true)
 			{
@@ -689,7 +689,7 @@ class EcProject{
 				global $SITE_ROOT, $XML_VERSION;
 		
 				$protocol = 'http';
-				if (array_get_if_exists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
+				if (EpiCollectUtils::array_get_if_exists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
 				
 				$xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n
 <ecml version=\"$XML_VERSION\">

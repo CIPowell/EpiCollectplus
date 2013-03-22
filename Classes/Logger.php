@@ -3,22 +3,16 @@
 	{
 		private $db;
 		
-		public function __construct($logName)
+		public function __construct($logName, $db)
 		{
-			try{$this->db = new dbConnection();}catch(Exception $err) {$this->db = false;} 
+			$this->db = $db;
 		}
-		
-		public function close()
-		{
-			if($this->db)$this->db->__destruct();
-		}
-		
+
 		public function write($level, $msg)
 		{
 			if(!$this->db) return;
 			
-			$dat = new DateTime('now', new DateTimeZone('UTC'));
-			$ts = $dat->getTimestamp();
+			$dat = EpiCollectUtils::getTimestamp();
 			
 			$level = $this->db->escapeArg($level);
 			$msg = $this->db->escapeArg($msg);

@@ -32,7 +32,7 @@
   
   function getConfiguration($provider)
   {
-   $db = new dbConnection();
+   $db = new EpiCollectDatabaseConnection();
    $res = $db->do_query("CALL getOAuthProvider('$provider')");
    if($res)
    {
@@ -76,7 +76,7 @@
   
   function logout()
   {
-   $db = new dbConnection();
+   $db = new EpiCollectDatabaseConnection();
    $res = $db->do_query("CALL setOAuthLoginDetails ('{$this->provider}', '{$token->user_id}', '{$token->screen_name}', NULL, NULL,NULL)");
    if($res !== true)
    {
@@ -92,7 +92,7 @@
 	$_SESSION['EPICOLLECT_ACCESS_TOKEN'] = serialize($token);
 	$_SESSION['EPICOLLECT_TOKEN'] = null;
 	
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	
 	$res = $db->do_query("CALL setOAuthLoginDetails('{$this->provider}', '{$token->user_id}', '{$token->screen_name}', '{$_SESSION['EPICOLLECT_TOKEN']}', '{$_SESSION['EPICOLLECT_ACCESS_TOKEN']}', '".session_id()."')");
 	if($res === true)

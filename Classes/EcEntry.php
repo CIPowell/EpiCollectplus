@@ -62,8 +62,7 @@
 			
 			if(!$this->created)
 			{
-				$dt = new DateTime();
-				$this->created = $dt->getTimestamp();
+				$this->created = EpiCollectUtils::getTimestamp();
 			}
                         elseif(!is_numeric($this->created))
                         {
@@ -73,7 +72,7 @@
 			
 			
 			
-			$this->uploaded = getTimestamp('Y-m-d H:i:s');
+			$this->uploaded = EpiCollectUtils::getTimestamp('Y-m-d H:i:s');
 			
 			
 			if(!$this->deviceId)
@@ -211,7 +210,7 @@
 				
 				for( $i = 0; $i < $len; ++$i)
 				{
-					if( !$entries[$i]->created || $entries[$i]->created == "NULL") { $entries[$i]->created = getTimestamp(); }
+					if( !$entries[$i]->created || $entries[$i]->created == "NULL") { $entries[$i]->created = EpiCollectUtils::getTimestamp(); }
                                         else if(!is_numeric($entries[$i]->created )) {$entries[$i]->created = EcTable::unformatCreated($entries[$i]->created);}
 					
 					if($prj->tables[$entries[$i]->formName]->checkExists($entries[$i]->values[$keyfield]))
@@ -227,7 +226,7 @@
 							$db->stringVal($entries[$i]->formName),  
 							$db->stringVal($entries[$i]->deviceId), 
 							$entries[$i]->created, 
-							getTimestamp("Y-m-d H:i:s"), 
+							EpiCollectUtils::getTimestamp("Y-m-d H:i:s"), 
 							$entries[$i]->insert_key);
 					
 					//echo $_SERVER['REQUEST_TIME'] . '<br />\r\n';

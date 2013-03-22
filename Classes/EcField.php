@@ -250,7 +250,7 @@ class EcField{
 		public function addToDb()
 		{
 			global $db;
-			if(!$db) $db = new dbConnection();
+			if(!$db) $db = new EpiCollectDatabaseConnection();
 			$qry = "SELECT idFieldType FROM fieldtype where name = '{$this->type}'";
 			$db->do_query ($qry);
 			

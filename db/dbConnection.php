@@ -1,6 +1,6 @@
 <?php
 	
-	class dbConnection
+	class EpiCollectDatabaseConnection
 	{
 		private $con;
 		private $resSet;
@@ -11,50 +11,44 @@
 		private $schema;// = $DBNAME;
 		private $port;// = 3306;
 		private $lastId;
-		
+		private $engine;
+                
 		public $connected;
 		public $errorCode;
 		public $lastQuery;
 		
-		public function __construct($un = false, $pwd = false)
+                /**
+                 * 
+                 * @param String $engine The Database Software you want to use
+                 * @param String $server The address of the server
+                 * @param String $database
+                 * @param String $un
+                 * @param String $pwd
+                 * @param String $port
+                 */
+		public function __construct($engine, $server, $database, $un, $pwd, $port=false)
 		{
-			global $cfg;
 			
 			ini_set('mysql.connect_timeout', 300);
 			ini_set('default_socket_timeout', 300);
 			
-			if($un)
-			{
-				$this->username = $un;
-				$this->password = $pwd;
-			}
-			else
-			{
-				$this->username = $cfg->settings["database"]["user"];
-				$this->password = $cfg->settings["database"]["password"];
-			}
-			$this->server = $cfg->settings["database"]["server"];
-			$this->schema = $cfg->settings["database"]["database"];;
-			$this->port = $cfg->settings["database"]["port"];
+                        $this->engine = $engine;
+			$this->username = $un;
+			$this->password = $pwd;
+			$this->server = $server;
+			$this->schema = $database;
+			$this->port = $port;
 			
 			if($this->server && $this->port && $this->schema && $this->username)
-			{
-				
-				$this->con = new PDO(sprintf('mysql:dbname=%s;host=%s;port=%s ', $this->schema , $this->server, $this->port), $this->username, $this->password);
-				$this->connected = true;
-				
-				//if ($this->con->connect_errno) { 
-					
-				//	$this->connected = false;
-					//$this->errorCode = $this->con->connect_errno;
-				//	return;
-				//}
-				
-				
-				//$this->con->set_charset('utf-8');
-				try{
-					//$this->con->select_db($this->schema);
-				}catch(Exception $e){}
+			{   
+                            $cstr = sprintf('%s:dbname=%s;host=%s;', $this->engine, $this->schema , $this->server);
+                            if($this->port !== false)
+                            {
+                               $cstr = sprintf('%sport=%s', $cstr, $this->port);  
+                            }
+                            
+                            $this->con = new PDO($cstr, $this->username, $this->password);
+                            $this->connected = true;
 			}
 			else
 			{

@@ -30,7 +30,7 @@
 	echo"<tr><th colspan=\"2\">SQL Tests</th></tr>
 	<tr><td>Connect to db</td><td>";
 	try{
-		$db = new dbConnection();
+		$db = new EpiCollectDatabaseConnection();
 		echo "<span class=\"success\">OK</span>";
 	}catch(Exception $e)
 	{
@@ -55,7 +55,7 @@
 		echo "<span class=\"failure\">$res</span>";
 	}
 
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	
 	$res = $db->do_query("CALL setOAuthLoginDetails('twitter', '12345', 'test', 'testToken', 'testToken', 'abcdefghij');");
 	if($res === true)
@@ -69,7 +69,7 @@
 		echo "<span class=\"failure\">$res</span>";
 	}
 	
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	
 	$res = $db->do_query("CALL updateUser(2, 'name', 'email@domain.tld');");
 	if($res === true)
@@ -83,7 +83,7 @@
 		echo "<span class=\"failure\">$res</span>";
 	}
 	
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	
 	$res = $db->do_query("CALL getUserOAuthDetails(2, 'twitter');");
 	if($res === true)
@@ -97,7 +97,7 @@
 		echo "<span class=\"failure\">$res</span>";
 	}
 	
-	$db = new dbConnection();
+	$db = new EpiCollectDatabaseConnection();
 	
 	$res = $db->do_query("CALL endOAuthSession(2, 'twitter');");
 	if($res === true)
