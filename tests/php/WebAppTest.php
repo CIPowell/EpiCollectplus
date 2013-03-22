@@ -8,6 +8,11 @@
         {
             parent::setup();
             
+            $_SERVER['HTTP_HOST'] = 'test.epicollect.net';
+            $_SERVER['DOCUMENT_ROOT'] = 'C:/inetpub/wwwroot';
+            $_SERVER['SCRIPT_FILENAME'] = 'C:/inetpub/wwwroot/main.php';
+            $_SERVER['PHP_SELF'] = '/main.php';
+            
             $this->app = new EpiCollectWebApp();
             $this->app->before_first_request();    
             $this->app->before_request();         
@@ -95,6 +100,14 @@
             $fn = 'abc.xml';
             $_SERVER['HTTP_HOST'] = 'www.domain.tld';
             $this->assertEquals('http://www.domain.tld/ec/uploads/abc.xml', $app2->makeUrl($fn));
+        }
+        
+        public function testIndex()
+        {
+            $_SERVER['REQUEST_URI'] = '/';
+            $_SESSION = array();
+            
+            $this->app->process_request();
         }
     }
     
