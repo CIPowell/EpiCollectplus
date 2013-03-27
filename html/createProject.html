@@ -1,3 +1,5 @@
+{{page_name}}create{{/page_name}}
+
 {{style}}	
 {{/style}}
 
@@ -105,9 +107,8 @@
 {{main}}
     <div class="row">
         <div class="span12">
-            <h1 id="title">Create a Project - <span class="projectName"></span></h1>
+            <h1 id="title">Create a Project</h1>
             <div id="message" class="flashes"></div>
-            <h2>Project Definition</h2>
         </div>
     </div>
     <form id="projectOptions" action="create" method="POST">
@@ -131,7 +132,7 @@
              </div>
         </div>
         <div class="row">
-            <div class="span12">
+            <div class="span12 permissions">
                 <h2>Project Access</h2>
                 <p>Please choose a level of access for your project.</p>
                 <label for="project-public" class="radio">  <input type="radio" name="permission" value="public" id="project-public" checked="checked" /><strong>Public</strong>: Your data is visible to anyone and you are included on the project list. Intended for use

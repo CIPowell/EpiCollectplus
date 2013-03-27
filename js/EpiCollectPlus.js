@@ -1,5 +1,6 @@
-define( ['jquery.min', 'checkurl', 'bootstrap-collapse'], function(ig, URLChecker, no){
-  
+define(function(){
+    
+    
     var map;
     var completed;
     var succeeded;
@@ -401,8 +402,7 @@ define( ['jquery.min', 'checkurl', 'bootstrap-collapse'], function(ig, URLChecke
             return (function(e, f){obj[func](e, f);});
     }
 
-    EpiCollect.Project = function()
-    {
+    EpiCollect.Project = function(){
         this.forms = {};
         this.localUrl = '';
         this.remoteUrl = '';
@@ -551,6 +551,52 @@ define( ['jquery.min', 'checkurl', 'bootstrap-collapse'], function(ig, URLChecke
                     return xml;
             };
     };
+
+    EpiCollect.ProjectCollection = Backbone.Collection.extend({
+        model : EpiCollect.Project,
+        comparitor : 'name',
+        url : 'projects'
+    });
+    
+    EpiCollect.ProjectSummary = Backbone.View.extend({
+       tagname : 'div',
+       initialize : function()
+       {
+           this.listenTo(this.model, 'change', this.render);
+       },
+       render : function()
+       {
+           this.$el.html(this.template(this.model.toJSON()));
+           return this;
+       }
+       
+    });
+    
+    EpiCollect.ProjectList = Backbone.View.extend({
+        initialize : function()
+        {
+            this.projects = new EpiCollect.ProjectCollection();
+            
+            this.listenTo(this.projects, 'add', this.addOne);
+            this.listenTo(this.projects, 'reset', this.addAll);
+            this.listenTo(this.projects, 'all', this.render);
+            
+            this.projects.fetch();
+        },
+        render : function()
+        {
+            
+        },
+        addOne : function(prj)
+        {
+            var view = new EpiCollect.ProjectSummary({ model : prj });
+            this.$el.append(view.render().el);
+        },
+        addAll : function()
+        {
+            this.project.each(this.addOne, this);
+        }
+    });
 
     EpiCollect.Form = function()
     {

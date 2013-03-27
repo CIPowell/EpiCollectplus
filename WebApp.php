@@ -6,8 +6,11 @@ class EpiCollectWebApp
      *
      * @var string the URL of the homepage of this site, included in case EpiCollect+ is deployed in a sub-folder of a website 
      */
-    private $site_root = '';
-    private $auth, $cfg, $db, $logger, $host, $https_enabled, $base_url;
+    public $site_root = '';
+    private $auth, $cfg, $db, $logger, $host, $https_enabled;
+    
+    public $base_url;
+    
     const XML_VERSION = 1.0;
     const CODE_VERSION = "1.4";
     
@@ -34,6 +37,8 @@ class EpiCollectWebApp
         
         $this->host = EpiCollectUtils::array_get_if_exists($_SERVER, 'HTTP_HOST');
         
+       
+        
         if($this->site_root === '')
         {
             $this->base_url = sprintf('http://%s', $this->host);
@@ -44,105 +49,104 @@ class EpiCollectWebApp
         }
                
         $this->cfg = new ConfigManager('./ec/epicollect.ini');
-        $this->auth = new AuthManager($this->cfg);
+        
         
         $db_cfg = $this->cfg->settings['database'];
         $this->db = new EpiCollectDatabaseConnection('mysql', $db_cfg['server'], $db_cfg['database'], $db_cfg['user'] , $db_cfg['password'], $db_cfg['port']);
         $this->logger = new Logger('Ec2', $this->db);
+        $this->auth = new AuthManager($this, $this->cfg);
         
         try{
             $hasManagers = $this->db->connected && count($this->auth->getServerManagers()) > 0;
         }
         catch (Exception $err)
         {
-                $hasManagers = false;
-                $this->logger->write('error', $err->getMessage());
+            $hasManagers = false;
+            $this->logger->write('error', $err->getMessage());
         }
 
-
-        
         $this->page_rules = array(
-                    'markers/point' => new PageRule(null, 'getPointMarker'),
-                    'markers/cluster' => new PageRule(null, 'getClusterMarker'),
-    //static file handlers
-                    '' => new PageRule('index.html', 'siteHome'),
-                    'index.html?' => new PageRule('index.html', 'siteHome'),
-                    'privacy.html' => new PageRule('privacy.html', 'defaultHandler'),
-                    '[a-zA-Z0-1]+\.html' => new PageRule(null, 'defaultHandler'),
-                    'images/.+' => new PageRule(),
-                    'favicon\..+' => new PageRule(),
-                    'js/.+' => new PageRule(),
-                    'css/.+' => new PageRule(),
-                    'EpiCollectplus\.apk' => new PageRule(),
-                    'html/projectIFrame.html' => new PageRule(),
+            'markers/point' => new PageRule(null, 'getPointMarker'),
+            'markers/cluster' => new PageRule(null, 'getClusterMarker'),
+            //static file handlers
+            '' => new PageRule('index.html', 'siteHome'),
+            'index.html?' => new PageRule('index.html', 'siteHome'),
+            'privacy.html' => new PageRule('privacy.html', 'defaultHandler'),
+            '[a-zA-Z0-1]+\.html' => new PageRule(null, 'defaultHandler'),
+            'images/.+' => new PageRule(),
+            'favicon\..+' => new PageRule(),
+            'js/.+' => new PageRule(),
+            'css/.+' => new PageRule(),
+            'EpiCollectplus\.apk' => new PageRule(),
+            'html/projectIFrame.html' => new PageRule(),
 
-    //project handlers
-                    'pc' => new PageRule(null, 'projectCreator', true),
-                    'create' => new PageRule(null, 'createFromXml', true),
-                    'createProject.html' => new PageRule(null, 'createProject', true),
-                    'projectHome.html' => new PageRule(null, 'projectHome'),
-                    'createOrEditForm.html' => new PageRule(null ,'formBuilder', true),
-                    'uploadProject' =>new PageRule(null, 'uploadProjectXML', true),
-                    'getForm' => new PageRule(null, 'getXML',	 true),
-                    'validate' => new PageRule(null, 'validate',false),
-    //'listXML' => new PageRule(null, 'listXML',false),
-    //login handlers
-    //'Auth/loginCallback.php' => new PageRule(null,'loginCallbackHandler'),
-                    'login.php' => new PageRule(null,'loginHandler', false, true),
-                    'loginCallback' => new PageRule(null,'loginCallback', false, true),
-                    'logout' => new PageRule(null, 'logoutHandler'),
-                    'chooseProvider.html' => new PageRule(null, 'chooseProvider'),
+            //project handlers
+            'pc' => new PageRule(null, 'projectCreator', true),
+            'create' => new PageRule(null, 'createFromXml', true),
+            'createProject.html' => new PageRule(null, 'createProject', true),
+            'projectHome.html' => new PageRule(null, 'projectHome'),
+            'createOrEditForm.html' => new PageRule(null ,'formBuilder', true),
+            'uploadProject' =>new PageRule(null, 'uploadProjectXML', true),
+            'getForm' => new PageRule(null, 'getXML',	 true),
+            'validate' => new PageRule(null, 'validate',false),
 
-    //user handlers
-                    'updateUser.html' => new PageRule(null, 'updateUser', true),
-                    'saveUser' =>new PageRule(null, 'saveUser', true),
-                    'user/manager/?' => new PageRule(null, 'managerHandler', true),
-                    'user/.*@.*?' => new PageRule(null, 'userHandler', true),
-                    'admin' => new PageRule(null, 'admin', true),
-                    'listUsers' => new PageRule(null, 'listUsers', true),
-                    'disableUser' => new PageRule(null, 'disableUser',true),
-                    'enableUser' => new PageRule(null, 'enableUser',true),
-                    'resetPassword' => new PageRule(null, 'resetPassword',true),
-                    'register' => new PageRule(null, 'createAccount', false),
+            //login handlers
+            //'Auth/loginCallback.php' => new PageRule(null,'loginCallbackHandler'),
+            'login' => new PageRule(null,'loginHandler', false, true),
+            'loginCallback' => new PageRule(null,'loginCallback', false, true),
+            'logout' => new PageRule(null, 'logoutHandler'),
+            'chooseProvider.html' => new PageRule(null, 'chooseProvider'),
 
-    //generic, dynamic handlers
-                    'getControls' =>  new PageRule(null, 'getControlTypes'),
-                    'uploadFile.php' => new PageRule(null, 'uploadHandlerFromExt'),
-                    'ec/uploads/.+\.(jpe?g|mp4)$' => new PageRule(null, 'getMedia'),
-                    'ec/uploads/.+' => new PageRule(null, null),
+             //user handlers
+            'updateUser.html' => new PageRule(null, 'updateUser', true),
+            'saveUser' =>new PageRule(null, 'saveUser', true),
+            'user/manager/?' => new PageRule(null, 'managerHandler', true),
+            'user/.*@.*?' => new PageRule(null, 'userHandler', true),
+            'admin' => new PageRule(null, 'admin', true),
+            'listUsers' => new PageRule(null, 'listUsers', true),
+            'disableUser' => new PageRule(null, 'disableUser',true),
+            'enableUser' => new PageRule(null, 'enableUser',true),
+            'resetPassword' => new PageRule(null, 'resetPassword',true),
+            'register' => new PageRule(null, 'createAccount', false),
 
-                    'uploadTest.html' => new PageRule(null, 'defaultHandler', true),
-                    'test' => new PageRule(null, 'siteTest', false),
-                    'tests.*' => new PageRule(),
-                    'createDB' => new PageRule(null, 'setupDB',true),
-                    'writeSettings' => new PageRule(null, 'writeSettings', true),
+            //generic, dynamic handlers
+            'getControls' =>  new PageRule(null, 'getControlTypes'),
+            'uploadFile.php' => new PageRule(null, 'uploadHandlerFromExt'),
+            'ec/uploads/.+\.(jpe?g|mp4)$' => new PageRule(null, 'getMedia'),
+            'ec/uploads/.+' => new PageRule(null, null),
 
-    //to API
-                    'projects' => new PageRule(null, 'projectList'),
-                    '[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|/)?' =>new PageRule(null, 'projectHome'),
-                    '[a-zA-Z0-9_-]+/upload' =>new PageRule(null, 'uploadData'),
-                    '[a-zA-Z0-9_-]+/download' =>new PageRule(null, 'downloadData'),
-                    '[a-zA-Z0-9_-]+/summary' =>new PageRule(null, 'projectSummary'),
-                    '[a-zA-Z0-9_-]+/usage' =>  new PageRule(null, 'projectUsage'),
-                    '[a-zA-Z0-9_-]+/formBuilder(\.html)?' =>  new PageRule(null, 'formBuilder', true),
-                    '[a-zA-Z0-9_-]+/editProject.html' =>new PageRule(null, 'editProject', true),
-                    '[a-zA-Z0-9_-]+/update' =>new PageRule(null, 'updateProject', true),
-                    '[a-zA-Z0-9_-]+/manage' =>new PageRule(null, 'updateProject', true),
-                    '[a-zA-Z0-9_-]+/updateStructure' =>new PageRule(null, 'updateXML', true),
-                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__stats' =>new PageRule(null, 'tableStats'),
-                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__activity' =>new PageRule(null, 'formDataLastUpdated'),
-                    '[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
-                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
-                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__getImage' =>new PageRule(null, 'getImage'),
+            'uploadTest.html' => new PageRule(null, 'defaultHandler', true),
+            'test' => new PageRule(null, 'siteTest', false),
+            'tests.*' => new PageRule(),
+            'createDB' => new PageRule(null, 'setupDB',true),
+            'writeSettings' => new PageRule(null, 'writeSettings', true),
 
-                    '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|\.kml|\.js|\.css|/)?' => new PageRule(null, 'formHandler'),
+            //to API
+            'projects' => new PageRule(null, 'projectList'),
+            '[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|/)?' =>new PageRule(null, 'projectHome'),
+            '[a-zA-Z0-9_-]+/upload' =>new PageRule(null, 'uploadData'),
+            '[a-zA-Z0-9_-]+/download' =>new PageRule(null, 'downloadData'),
+            '[a-zA-Z0-9_-]+/summary' =>new PageRule(null, 'projectSummary'),
+            '[a-zA-Z0-9_-]+/usage' =>  new PageRule(null, 'projectUsage'),
+            '[a-zA-Z0-9_-]+/formBuilder(\.html)?' =>  new PageRule(null, 'formBuilder', true),
+            '[a-zA-Z0-9_-]+/editProject.html' =>new PageRule(null, 'editProject', true),
+            '[a-zA-Z0-9_-]+/update' =>new PageRule(null, 'updateProject', true),
+            '[a-zA-Z0-9_-]+/manage' =>new PageRule(null, 'updateProject', true),
+            '[a-zA-Z0-9_-]+/updateStructure' =>new PageRule(null, 'updateXML', true),
+            '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__stats' =>new PageRule(null, 'tableStats'),
+            '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__activity' =>new PageRule(null, 'formDataLastUpdated'),
+            '[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
+            '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/uploadMedia' =>new PageRule(null, 'uploadMedia'),
+            '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/__getImage' =>new PageRule(null, 'getImage'),
+
+            '[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\.xml|\.json|\.tsv|\.csv|\.kml|\.js|\.css|/)?' => new PageRule(null, 'formHandler'),
 
             //'[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*/usage' => new  => new PageRule(null, formUsage),
-                    '[^/\.]*/[^/\.]+/[^/\.]*(\.xml|\.json|/)?' => new PageRule(null, 'entryHandler')
+            '[^/\.]*/[^/\.]+/[^/\.]*(\.xml|\.json|/)?' => new PageRule(null, 'entryHandler')
 
             //forTesting
 
-            );
+        );
     }
     
     function before_first_request()
@@ -171,12 +175,24 @@ class EpiCollectWebApp
             EpiCollectWebApp::BadRequest();
             die();
         }
+       
         @session_start();
+        
+        if(!EpiCollectUtils::array_get_if_exists($_SESSION, 'SEEN_COOKIE_MSG')) {
+            EpiCollectWebApp::flash(sprintf('EpiCollectPlus uses cookies make the site work. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $this->base_url));
+            $_SESSION['SEEN_COOKIE_MSG'] = true;
+        }
     } 
+    
+    function getDB()
+    {
+        return $this->db;
+    }
     
     function process_request()
     {
         $url = $this->get_request_url();
+        $rule = '';
         
         if(array_key_exists($url, $this->page_rules))
         {
@@ -196,13 +212,13 @@ class EpiCollectWebApp
                 }
         }
 
-        if($rule)
+        if($rule !== '')
         {
                 if($rule->secure && !EpiCollectUtils::array_get_if_exists($_SERVER, "HTTPS"))
                 {
                         $this->https_enabled = false;
                         try{
-                                $this->https_enabled = file_exists("https://{$_SERVER["HTTP_HOST"]}/{$SITE_ROOT}/{$url}");
+                                $this->https_enabled = file_exists("https://{$_SERVER["HTTP_HOST"]}/{$this->site_root}/{$url}");
                         }
                         catch(Exception $e)
                         {
@@ -210,7 +226,7 @@ class EpiCollectWebApp
                         }
                         if($this->https_enabled)
                         {
-                            EpiCollectWebApp::Redirect(sprintf("https://%s/%s/%s",$_SERVER["HTTP_HOST"], $SITE_ROOT, $url));
+                            EpiCollectWebApp::Redirect(sprintf("https://%s/%s/%s",$_SERVER["HTTP_HOST"], $this->site_root, $url));
                                 die();
                         }
                 }
@@ -220,22 +236,21 @@ class EpiCollectWebApp
                 }
 
 
-                if($rule->login && !$auth->isLoggedIn())
+                if($rule->login && !$this->auth->isLoggedIn())
                 {
                     EpiCollectWebApp::DoNotCache();
 
                         if(array_key_exists("provider", $_GET))
                         {
                                 $_SESSION["provider"] = $_GET["provider"];
-                                $auth = new AuthManager();
-                                $frm = $auth->requestlogin($url, $_GET["provider"]);
+                              
+                                $frm = $this->auth->requestlogin($url, $_GET["provider"]);
                         }
                         else
                         {
-                                $auth = new AuthManager();
-                                $frm = $auth->requestlogin($url);
+                                $frm = $this->auth->requestlogin($url);
                         }
-                        echo applyTemplate("./base.html", "./loginbase.html", array( "form" => $frm));
+                        echo $this->applyTemplate("./base.html", "./loginbase.html", array( "form" => $frm));
                         return;
                 }
                 if($rule->redirect)
@@ -246,7 +261,7 @@ class EpiCollectWebApp
                 {
                         $h = $rule->handler;
                         //if($h != 'defaultHandler') @session_start();
-                        $this->$h();
+                        echo $this->$h();
                 }
                 else
                 {
@@ -260,8 +275,7 @@ class EpiCollectWebApp
         else
         {
 
-                $parts = explode("/", $url);
-                echo applyTemplate("./base.html", "./error.html");
+                echo $this->applyTemplate("./base.html", "./error.html");
         }
     }
     
@@ -293,18 +307,18 @@ class EpiCollectWebApp
                             //if so put the user's name and a logout option in the login section
                             if($this->auth->isServerManager())
                             {
-                                    $template = str_replace('{#loggedIn#}', 'Logged in as ' . $auth->getUserNickname() . ' (' . $auth->getUserEmail() .  ')  <a href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>  <a href="{#SITE_ROOT#}/admin">Manage Server</a>', $template);
+                                    $template = str_replace('{#loggedIn#}', 'Logged in as ' . $this->auth->getUserNickname() . ' (' . $this->auth->getUserEmail() .  ')  <a href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>  <a href="{#SITE_ROOT#}/admin">Manage Server</a>', $template);
                             }
                             else
                             {
-                                    $template = str_replace('{#loggedIn#}', sprintf('Logged in as %s (%s) <a class="btn btn-mini" href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>', $auth->getUserNickname(), $auth->getUserEmail()), $template);
+                                    $template = str_replace('{#loggedIn#}', sprintf('Logged in as %s (%s) <a class="btn btn-mini" href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>', $this->auth->getUserNickname(), $this->auth->getUserEmail()), $template);
                             }
-                            $templateVars['userEmail'] = $auth->getUserEmail();
+                            $templateVars['userEmail'] = $this->auth->getUserEmail();
                     }
                     // else show the login link
                     else
                     {
-                            $template = str_replace('{#loggedIn#}', '<a href="{#SITE_ROOT#}/login.php">Sign in</a>', $template);
+                            $template = str_replace('{#loggedIn#}', '<a href="{#SITE_ROOT#}/login">Sign in</a>', $template);
                     }
                     // work out breadcrumbs
                     //$template = str_replace("{#breadcrumbs#}", '', $template);
@@ -380,7 +394,7 @@ class EpiCollectWebApp
     
     /**
      * The site landing page
-     * @return type
+     * @return string
      */
     function siteHome()
     {
@@ -427,7 +441,7 @@ class EpiCollectWebApp
             {
                     $vals['userprojects'] = '<div class="ecplus-userprojects"><h1>My Projects</h1>';
 
-                    $prjs = EcProject::getUserProjects($this->auth->getEcUserId());
+                    $prjs = EcProject::getUserProjects($this->db, $this->auth->getEcUserId());
                     $count = count($prjs);
 
                     for($i = 0; $i < $count; $i++)
@@ -438,9 +452,375 @@ class EpiCollectWebApp
                     $vals['userprojects'] .= '</div>';
             }
 
-            echo $this->applyTemplate("base.html","index.html",$vals);
+            return $this->applyTemplate("base.html","index.html",$vals);
     }
     
+    /**
+     * Called when the page requires a log in
+     */
+    function loginHandler()
+    {
+	$cb_url='';
+	EpiCollectWebApp::DoNotCache();
+	
+        $url = $this->get_request_url();
+        
+	if( !preg_match('/login.php/', $url) )
+	{
+		$cb_url = $url; 
+	}
+	
+	if(array_key_exists('provider', $_GET))
+	{
+		$_SESSION['provider'] = $_GET['provider'];
+		$frm = $this->auth->requestlogin($cb_url, $_SESSION['provider']);
+	}
+	elseif (array_key_exists('provider', $_SESSION))
+	{
+		$frm = $this->auth->requestlogin($cb_url, $_SESSION['provider']);
+	}
+	else
+	{
+		$frm = $this->auth->requestlogin($cb_url);
+	}
+
+	
+	return $this->applyTemplate('./base.html', './loginbase.html', array( 'form' => $frm));
+    }
+    
+    function loginCallback()
+    {
+        EpiCollectWebApp::DoNotCache();
+     
+        $provider = EpiCollectUtils::array_get_if_exists($_POST, 'provider');
+        if(!$provider)
+            $provider = EpiCollectUtils::array_get_if_exists($_SESSION, 'provider');
+        else {
+            $_SESSION['provider'] = $provider;
+        }
+
+	$this->auth->callback($provider);
+    }
+    
+    function logoutHandler()
+    {
+        EpiCollectWebApp::DoNotCache();
+        if($this->auth)
+        {
+                $this->auth->logout();
+                EpiCollectWebApp::Redirect($this->base_url);
+                return;
+        }
+        else
+        {
+                echo 'No Auth';
+        }
+}
+    
+    /**
+    * Produce a list of all the projects on this server that are
+    * 	- publically listed
+    *  - if a user is logged in, owned, curated or managed by the user
+    */
+    function projectList()
+    {
+           
+            $prjs = EcProject::getPublicProjects($this->db);
+            $usr_prjs = array();
+            if($this->auth->isLoggedIn())
+            {  
+                $usr_prjs = EcProject::getUserProjects($this->db, $this->auth->getEcUserId());
+                $up_l = count($usr_prjs);
+                for($p = 0; $p < $up_l; $p++ )
+                {
+                    if($usr_prjs[$p]["listed"] === 0)
+                    {
+                        array_push($prjs, $usr_prjs[$p]);
+                    }
+                }
+            }
+
+            return json_encode($prjs);
+    }
+    
+    /**
+     * The create project screen.
+     * @return String rendered page
+     */
+    function createProject()
+    {
+	EpiCollectWebApp::DoNotCache();
+	return $this->applyTemplate("./base.html","./createProject.html");
+    }
+    
+    function createFromXml()
+    {
+        $prj = new EcProject();
+
+        if(array_key_exists("xml", $_REQUEST) && $_REQUEST["xml"] != "")
+        {
+                $xmlFn = "ec/xml/{$_REQUEST["xml"]}";
+
+                $prj->parse(file_get_contents($xmlFn));
+        }
+        elseif(array_key_exists("name", $_POST))
+        {
+                $prj->name = $_POST["name"];
+                $prj->submission_id = strtolower($prj->name);
+        }
+        elseif(array_key_exists("raw_xml", $_POST))
+        {
+                $prj->parse($_POST["raw_xml"]);
+        }
+
+        if(!$prj->name || $prj->name == "")
+        {
+                EpiCollectWebApp::flash("No project name provided");
+                EpiCollectWebApp::Redirect(sprintf('%s/createProject.html', $this->base_url));
+        }
+
+        if( $_REQUEST["permission"] == "public" || $_REQUEST["permission"] === "private" )
+        {
+            $prj->isListed = true;
+        }
+        else
+        {
+            $prj->isListed = false;
+        }
+        $prj->isPublic = $_REQUEST["permission"] == "public";
+        $prj->publicSubmission = true;
+
+        $p_res = $prj->post($this->db, $this->auth);
+        if($p_res !== true)die($p_res);
+
+        $res = $prj->setManagers($this->db, $this->auth, $this->auth->getUserEmail());
+
+        // TODO : add submitter $prj->setProjectPermissions($submitters,1);
+
+        if($res === true)
+        {
+            
+                 EpiCollectWebApp::Redirect($this->base_url . preg_replace("/create.*$/", $prj->name, $url));
+        }
+        else
+        {
+                $vals = array("error" => $res);
+                return applyTemplate("base.html","error.html",$vals);
+        }
+    }
+
+    function projectHome()
+    {
+        $url = $this->get_request_url();
+        $eou = strlen($url) - 1;
+        if($url{$eou} == '/')
+        {
+                $url{$eou} = '';
+        }
+        $url = ltrim($url, '/');
+
+        $prj = new EcProject();
+        if(array_key_exists('name', $_GET))
+        {
+            $prj->name = $_GET['name'];
+        }
+        else
+        {
+            $prj->name = preg_replace('/\.(xml|json)$/', '', $url);
+        }
+
+        $prj->fetch($this->db);
+
+        if(!$prj->id)
+        {
+            $vals = array('error' => 'Project could not be found');
+            return $this->applyTemplate('base.html','./404.html', $vals);
+        }
+
+
+        $loggedIn = $this->auth->isLoggedIn();
+        $role = $prj->checkPermission($this->db, $this->auth, $this->auth->getEcUserId());
+
+        if( !$prj->isPublic && !$loggedIn && !preg_match('/\.xml$/',$url) )
+        {
+            EpiCollectWebApp::flash('This is a private project, please log in to view the project.');
+            $this->loginHandler($url);
+            return;
+        }
+        else if( !$prj->isPublic && $role < 2 && !preg_match('/\.xml$/',$url) )
+        {
+            EpiCollectWebApp::flash(sprintf('You do not have permission to view %s.', $prj->name));
+            EpiCollectWebApp::Redirect(sprintf('http://%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT));
+            return;
+        }
+
+
+
+        //echo strtoupper($_SERVER["REQUEST_METHOD"]);
+        $reqType = strtoupper($_SERVER['REQUEST_METHOD']);
+        if( $reqType == 'POST' ) //
+        {
+            //echo 'POST';
+            // update project
+            $prj->description = $_POST['description'];
+            $prj->image = $_POST['image'];
+            $prj->isPublic = array_key_exists('isPublic', $_POST) && $_POST['isPublic'] == 'on' ?  1 : 0;
+            $prj->isListed =  array_key_exists('isListed', $_POST) && $_POST['isListed'] == 'on' ?  1 : 0;
+            $prj->publicSubmission =  array_key_exists('publicSubmission', $_POST) && $_POST['publicSubmission'] == 'on' ?  1 : 0;
+
+            $res = $prj->id ? $prj->push() : $prj->post();
+            if( $res !== true )
+            {
+                    echo $res;
+            }
+
+            if( $_POST['admins'] && $res === true )
+            {
+                    $res = $prj->setAdmins($_POST["admins"]);
+            }
+
+            if( $_POST['users'] && $res === true )
+            {
+                    $res = $prj->setUsers($_POST["users"]);
+            }
+
+            if( $_POST['submitters'] && $res === true )
+            {
+                    $res = $prj->setSubmitters($_POST['submitters']);
+            }
+            echo $res;
+        }
+        elseif( $reqType == 'DELETE' )
+        {
+            if( $role  == 3 )
+            {
+                $res = $prj->deleteProject();
+                if( $res === true )
+                {
+                    EpiCollectWebApp::OK();
+                    echo '{ "success": true }';
+                    return;
+                }
+                else
+                {
+                    EpiCollectWebApp::Fail();
+                    echo ' {"success" : false, "message" : "Could not delete project" }';
+                }
+            }
+            else
+            {
+                EpiCollectWebApp::Denied(" delete this project");
+                echo ' {"success" : false, "message" : "You do not have permission to delete this project" }';
+            }
+
+        }
+        elseif( $reqType == 'GET' )
+        {
+            EpiCollectWebApp::DoNotCache();
+            if( array_key_exists('HTTP_ACCEPT', $_SERVER) ) $format = substr($_SERVER["HTTP_ACCEPT"], strpos($_SERVER["HTTP_ACCEPT"], "{$this->site_root}/") + 1 );
+            $ext = substr($url, strrpos($url, '.') + 1);
+            $format = $ext != '' ? $ext : $format;
+            if( $format == 'xml' )
+            {
+                EpiCollectWebApp::ContentType('xml');
+                echo $prj->toXML($this->base_url);
+            }else {
+                EpiCollectWebApp::ContentType('html');
+
+                try{
+                    //$userMenu = '<h2>View Data</h2><span class="menuItem"><img src="images/map.png" alt="Map" /><br />View Map</span><span class="menuItem"><img src="images/form_view.png" alt="List" /><br />List Data</span>';
+                    //$adminMenu = '<h2>Project Administration</h2><span class="menuItem"><a href="./' . $prj->name . '/formBuilder.html"><img src="'.$SITE_ROOT.'/images/form_small.png" alt="Form" /><br />Create or Edit Form(s)</a></span><span class="menuItem"><a href="editProject.html?name='.$prj->name.'"><img src="'.$SITE_ROOT.'/images/homepage_update.png" alt="Home" /><br />Update Project</a></span>';
+                    $tblList = '';
+                    foreach( $prj->tables as $tbl )
+                    {
+                            $tblList .= "<div class=\"tblDiv\"><a class=\"tblName\" href=\"{$prj->name}/{$tbl->name}\">{$tbl->name}</a><a href=\"{$prj->name}/{$tbl->name}\">View All Data</a> | <form name=\"{$tbl->name}SearchForm\" action=\"./{$prj->name}/{$tbl->name}\" method=\"GET\"> Search for {$tbl->key} <input type=\"text\" name=\"{$tbl->key}\" /> <a href=\"javascript:document.{$tbl->name}SearchForm.submit();\">Search</a></form></div>";
+                    }
+
+                    $imgName = $prj->image ? $prj->image : "images/projectPlaceholder.png";
+
+                    if( file_exists($imgName) )
+                    {
+                            $imgSize = getimagesize($imgName);
+                    }
+                    else
+                    {
+                            $imgSize = array(0,0);
+                    }
+
+                    $adminMenu = '';
+                    $curpage = sprintf('http://%s/%s', $_SERVER['HTTP_HOST'], $this->base_url,  trim($url ,'/'));
+
+                    if( $role == 3 )
+                    {
+                        $adminMenu = "<span class=\"button-set\"><a href=\"{$curpage}/manage\" class=\"button\">Manage Project</a> <a href=\"{$curpage}/formBuilder\" class=\"button\">Edit Forms</a></span>";
+                    }
+
+                    $vals =  array(
+                        'projectName' => $prj->name,
+                        'projectDescription' => $prj->description && $prj->description != "" ? $prj->description : "Project homepage for {$prj->name}",
+                        'projectImage' => $this->base_url . '/' . $imgName,
+                        'imageWidth' => $imgSize[0],
+                        'imageHeight' =>$imgSize[1],
+                        'tables' => $tblList,
+                        'adminMenu' => $adminMenu,
+                        'userMenu' => ''
+                    );
+
+
+                    return $this->applyTemplate('project_base.html','projectHome.html',$vals);
+                    
+                }
+                catch( Exception $e )
+                {
+
+                    $vals = array('error' => $e->getMessage());
+                    return $this->applyTemplate('base.html','error.html',$vals);
+                }
+            }
+        }
+    }
+    
+    function getClusterMarker()
+    {
+        include '/utils/markers.php';
+        $colours = trim(EpiCollectUtils::array_get_if_exists($_GET, "colours"), '|');
+        $counts = trim(EpiCollectUtils::array_get_if_exists($_GET, "counts"), '|');
+
+
+        if(!$colours)
+        {
+            $colours = array("#FF0000");
+        }
+        else
+        {
+            $colours = explode("|", $colours);
+        }
+
+        if(!$counts)
+        {
+            $counts = array(111);
+        }
+        else
+        {
+            $counts = explode("|", $counts);
+        }
+
+        EpiCollectWebApp::ContentType('svg');
+        return getGroupMarker($colours, $counts);
+    }
+    
+    function getPointMarker()
+    {
+	include "./utils/markers.php";
+	
+	$colour = EpiCollectUtils::array_get_if_exists($_GET, "colour");
+	$shape = EpiCollectUtils::array_get_if_exists($_GET, "shape");
+	if(!$colour) $colour = "FF0000";
+	$colour = trim($colour, "#");
+        
+	EpiCollectWebApp::ContentType('svg');
+	return getMapMaker($colour, $shape);
+    }
     
     // Utility and helper functions
     

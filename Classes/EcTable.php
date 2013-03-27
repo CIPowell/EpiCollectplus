@@ -134,9 +134,8 @@
 			return $ent;
 		}
 		
-		public function fetch()
+		public function fetch($db)
 		{
-			$db = new EpiCollectDatabaseConnection();
 			//global $db;
 			$this->titleFields = array();
 			$qry = "SELECT * from form WHERE";
@@ -680,9 +679,8 @@
 			return $count;			
 		}
 		
-		public function recieve($n = 1, $full_urls = false)
+		public function recieve($n = 1, $full_urls = false, $base_url = "")
 		{
-			global $db, $SITE_ROOT;
 			$ret = array();
 			
 			for($i = -1; ($n > ++$i) && ($arr = $db->get_row_array()) ; )
@@ -701,7 +699,7 @@
 						}
 						elseif($full_urls && $this->fields[$kv[0]]->type == "photo" && $kv[1] != '')
 						{
-							$arr[$kv[0]] = sprintf('http://%s/%s%s/%s/__getImage?img=%s', $_SERVER['HTTP_HOST'], trim($SITE_ROOT, '/') . '/', $this->name, $this->projectName, $kv[1]);
+							$arr[$kv[0]] = sprintf('%s/__getImage?img=%s',trim($base_url, '/') . '/', $kv[1]);
 						}
 						elseif ($full_urls && $this->fields[$kv[0]]->valueIsFile() && $kv[1] != '')
 						{

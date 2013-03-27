@@ -6,10 +6,13 @@
 	{
 	
 		public $data = array();
+                private $auth;
+                private $openid;
 		
-		public function __construct()
+		public function __construct($app)
 		{
-			
+                    $this->app = $app;
+                    $this->openid = new LightOpenID("{$this->app->site_root}/loginCallback");
 		}
 		
 		function getType()
@@ -18,10 +21,8 @@
 		}
 		
 		public function requestLogin($callbackUrl, $firstLogin = false)
-		{
-                        global $SITE_ROOT;
-			
-			$this->openid = new LightOpenID("$SITE_ROOT/loginCallback");
+		{                       
+			$this->openid = new LightOpenID("{$this->app->site_root}/loginCallback");
 			$this->openid->identity = array_key_exists("openid", $_SESSION) ? $_SESSION["openid"] : "";
 			$this->openid->required = array('namePerson/first', 'namePerson/last', 'contact/email', 'contact/country/home', 'pref/language');
                     

@@ -28,7 +28,7 @@ function handleError($errno, $errstr, $errfile, $errline, array $errcontext)
 }
 
 
-set_error_handler('handleError', E_ALL);
+//set_error_handler('handleError', E_ALL);
 
 $app = new EpiCollectWebApp();
 $app->before_first_request();
@@ -169,76 +169,7 @@ function createAccount()
     
 }
 
-/**
- * Called when the page requires a log in
- */
-function loginHandler()
-{
-	$cb_url='';
-	EpiCollectWebApp::DoNotCache();
 
-	global $auth, $url, $db;
-	
-	if( !preg_match('/login.php/', $url) )
-	{
-		$cb_url = $url; 
-	}
-	
-	if( !$auth ) $auth = new AuthManager();
-	
-	if(array_key_exists('provider', $_GET))
-	{
-		$_SESSION['provider'] = $_GET['provider'];
-		$frm = $auth->requestlogin($cb_url, $_SESSION['provider']);
-	}
-	elseif (array_key_exists('provider', $_SESSION))
-	{
-		$frm = $auth->requestlogin($cb_url, $_SESSION['provider']);
-	}
-	else
-	{
-		$frm = $auth->requestlogin($cb_url);
-	}
-
-	
-	echo applyTemplate('./base.html', './loginbase.html', array( 'form' => $frm));
-}
-
-function loginCallback()
-{
-    EpiCollectWebApp::DoNotCache();
-     
-	global $auth, $cfg, $db;
-        $provider = EpiCollectUtils::array_get_if_exists($_POST, 'provider');
-        if(!$provider)
-            $provider = EpiCollectUtils::array_get_if_exists($_SESSION, 'provider');
-        else {
-            $_SESSION['provider'] = $provider;
-        }
-
-	$db = new EpiCollectDatabaseConnection();
-	if(!$auth) $auth = new AuthManager();
-	$auth->callback($provider);
-}
-
-function logoutHandler()
-{
-    EpiCollectWebApp::DoNotCache();
-
-	global $auth, $SITE_ROOT;
-	$server = trim($_SERVER['HTTP_HOST'], '/');
-	$root = trim($SITE_ROOT, '/');
-	if($auth)
-	{
-		$auth->logout();
-		EpiCollectWebApp::Redirect(sprintf('http://%s/%s/', $server, $root));
-		return;
-	}
-	else
-	{
-		echo 'No Auth';
-	}
-}
 
 function uploadHandlerFromExt()
 {
@@ -284,472 +215,228 @@ function uploadHandlerFromExt()
 	fclose($flog);
 }
 
-function projectList()
-{
-	/**
-	 * Produce a list of all the projects on this server that are
-	 * 	- publically listed
-	 *  - if a user is logged in, owned, curated or managed by the user
-	 */
-	global $auth;
 
-	$prjs = EcProject::getPublicProjects();
-	$usr_prjs = array();
-	if($auth->isLoggedIn())
-	{  
-            $usr_prjs = EcProject::getUserProjects($auth->getEcUserId());
-            $up_l = count($usr_prjs);
-            for($p = 0; $p < $up_l; $p++ )
-            {
-                if($usr_prjs[$p]["listed"] === 0)
-                {
-                    array_push($prjs, $usr_prjs[$p]);
-                }
-            }
-	}
-
-	echo json_encode($prjs);
-}
-
-
-function projectHome()
-{
-	global $url, $SITE_ROOT, $auth;
-
-	$eou = strlen($url) - 1;
-	if($url{$eou} == '/')
-	{
-		$url{$eou} = '';
-	}
-	$url = ltrim($url, '/');
-
-	$prj = new EcProject();
-	if(array_key_exists('name', $_GET))
-	{
-		$prj->name = $_GET['name'];
-	}
-	else
-	{
-		$prj->name = preg_replace('/\.(xml|json)$/', '', $url);
-	}
-	
-	$prj->fetch();
-
-	if(!$prj->id)
-	{
-		$vals = array('error' => 'Project could not be found');
-		echo applyTemplate('base.html','./404.html', $vals);
-		die;
-	}
-	
-	
-	$loggedIn = $auth->isLoggedIn();
-	$role = $prj->checkPermission($auth->getEcUserId());
-
-	if( !$prj->isPublic && !$loggedIn && !preg_match('/\.xml$/',$url) )
-	{
-		EpiCollectWebApp::flash('This is a private project, please log in to view the project.');
-		loginHandler($url);
-		return;
-	}
-	else if( !$prj->isPublic && $role < 2 && !preg_match('/\.xml$/',$url) )
-	{
-		EpiCollectWebApp::flash(sprintf('You do not have permission to view %s.', $prj->name));
-		EpiCollectWebApp::Redirect(sprintf('http://%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT));
-		return;
-	}
-	
-	
-
-	//echo strtoupper($_SERVER["REQUEST_METHOD"]);
-	$reqType = strtoupper($_SERVER['REQUEST_METHOD']);
-	if( $reqType == 'POST' ) //
-	{
-		//echo 'POST';
-		// update project
-		$prj->description = $_POST['description'];
-		$prj->image = $_POST['image'];
-		$prj->isPublic = array_key_exists('isPublic', $_POST) && $_POST['isPublic'] == 'on' ?  1 : 0;
-		$prj->isListed =  array_key_exists('isListed', $_POST) && $_POST['isListed'] == 'on' ?  1 : 0;
-		$prj->publicSubmission =  array_key_exists('publicSubmission', $_POST) && $_POST['publicSubmission'] == 'on' ?  1 : 0;
-			
-		$res = $prj->id ? $prj->push() : $prj->post();
-		if( $res !== true )
-		{
-			echo $res;
-		}
-			
-		if( $_POST['admins'] && $res === true )
-		{
-			$res = $prj->setAdmins($_POST["admins"]);
-		}
-			
-		if( $_POST['users'] && $res === true )
-		{
-			$res = $prj->setUsers($_POST["users"]);
-		}
-			
-		if( $_POST['submitters'] && $res === true )
-		{
-			$res = $prj->setSubmitters($_POST['submitters']);
-		}
-		echo $res;
-	}
-	elseif( $reqType == 'DELETE' )
-	{
-		if( $role  == 3 )
-		{
-			$res = $prj->deleteProject();
-			if( $res === true )
-			{
-                            EpiCollectWebApp::OK();
-                            echo '{ "success": true }';
-                            return;
-			}
-			else
-			{
-                            EpiCollectWebApp::Fail();
-                            echo ' {"success" : false, "message" : "Could not delete project" }';
-			}
-		}
-		else
-		{
-                    EpiCollectWebApp::Denied(" delete this project");
-                    echo ' {"success" : false, "message" : "You do not have permission to delete this project" }';
-		}
-		
-	}
-	elseif( $reqType == 'GET' )
-	{
-            EpiCollectWebApp::DoNotCache();
-            if( array_key_exists('HTTP_ACCEPT', $_SERVER)) $format = substr($_SERVER["HTTP_ACCEPT"], strpos($_SERVER["HTTP_ACCEPT"], "$SITE_ROOT/") + 1 );
-            $ext = substr($url, strrpos($url, '.') + 1);
-            $format = $ext != '' ? $ext : $format;
-            if( $format == 'xml' )
-            {
-                EpiCollectWebApp::ContentType('xml');
-                echo $prj->toXML();
-            }else {
-                EpiCollectWebApp::ContentType('html');
-                
-                try{
-                    //$userMenu = '<h2>View Data</h2><span class="menuItem"><img src="images/map.png" alt="Map" /><br />View Map</span><span class="menuItem"><img src="images/form_view.png" alt="List" /><br />List Data</span>';
-                    //$adminMenu = '<h2>Project Administration</h2><span class="menuItem"><a href="./' . $prj->name . '/formBuilder.html"><img src="'.$SITE_ROOT.'/images/form_small.png" alt="Form" /><br />Create or Edit Form(s)</a></span><span class="menuItem"><a href="editProject.html?name='.$prj->name.'"><img src="'.$SITE_ROOT.'/images/homepage_update.png" alt="Home" /><br />Update Project</a></span>';
-                    $tblList = '';
-                    foreach( $prj->tables as $tbl )
-                    {
-                            $tblList .= "<div class=\"tblDiv\"><a class=\"tblName\" href=\"{$prj->name}/{$tbl->name}\">{$tbl->name}</a><a href=\"{$prj->name}/{$tbl->name}\">View All Data</a> | <form name=\"{$tbl->name}SearchForm\" action=\"./{$prj->name}/{$tbl->name}\" method=\"GET\"> Search for {$tbl->key} <input type=\"text\" name=\"{$tbl->key}\" /> <a href=\"javascript:document.{$tbl->name}SearchForm.submit();\">Search</a></form></div>";
-                    }
-
-                    $imgName = $prj->image ? $prj->image : "images/projectPlaceholder.png";
-
-                    if( file_exists($imgName) )
-                    {
-                            $imgSize = getimagesize($imgName);
-                    }
-                    else
-                    {
-                            $imgSize = array(0,0);
-                    }
-
-                    $adminMenu = '';
-                    $curpage = trim($url ,'/');
-                    $curpage = sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $curpage);
-
-                    if( $role == 3 )
-                    {
-                            $adminMenu = "<span class=\"button-set\"><a href=\"{$curpage}/manage\" class=\"button\">Manage Project</a> <a href=\"{$curpage}/formBuilder\" class=\"button\">Edit Forms</a></span>";
-                    }
-
-                    $vals =  array(
-                            'projectName' => $prj->name,
-                            'projectDescription' => $prj->description && $prj->description != "" ? $prj->description : "Project homepage for {$prj->name}",
-                            'projectImage' => str_replace($prj->name, $imgName, $curpage),
-                            'imageWidth' => $imgSize[0],
-                            'imageHeight' =>$imgSize[1],
-                            'tables' => $tblList,
-                            'adminMenu' => $adminMenu,
-                            'userMenu' => ''
-                    );
-
-
-                    echo applyTemplate('project_base.html','projectHome.html',$vals);
-                    return;
-                }
-                catch( Exception $e )
-                {
-
-                    $vals = array('error' => $e->getMessage());
-                    echo applyTemplate('base.html','error.html',$vals);
-                }
-            }
-	}
-}
 
 function siteTest()
 {
-	$res = array();
-	global $cfg, $db;
+    $res = array();
+    global $cfg, $db;
 
-	$template = 'testResults.html';
-	
-	$doit = true;
-	if(!array_key_exists("database", $cfg->settings) || !array_key_exists("server", $cfg->settings["database"]) ||trim($cfg->settings["database"]["server"]) == "")
-	{
-		$res["dbStatus"] = "fail";
-		$res["dbResult"] = "No database server specified, please amend the file ec/settings.php and so that \$DBSERVER equals the name of the MySQL server";
-		$doit = false;
-	}
-	else if(!array_key_exists("user", $cfg->settings["database"]) || trim($cfg->settings["database"]["user"]) == "")
-	{
-		$res["dbStatus"] = "fail";
-		$res["dbResult"] = "No database user specified, please amend the file ec/settings.php so that \$DBUSER and \$DBPASS equal the credentials for MySQL server";
-		$doit = false;
-	}
-	else if(!array_key_exists("database", $cfg->settings["database"]) ||trim($cfg->settings["database"]["database"]) == "")
-	{
-		$res["dbStatus"] = "fail";
-		$res["dbResult"] = "No database name specified, please amend the file ec/settings.php so that \$DBNAME equals the name of the MySQL database";
-		$doit = false;
-	}
+    $template = 'testResults.html';
 
-	if($doit && !(array_key_exists("edit", $_GET) && $_GET["edit"] === "true"))
-	{
-		if(array_key_exists("redir", $_GET) && $_GET["redir"] === "true") $res["redirMsg"] = "	<p class=\"message\">You have been brought to this page because of a fatal error opening the home page</p>";
-		if(array_key_exists("redir", $_GET) && $_GET["redir"] === "pwd") $res["redirMsg"] = "	<p class=\"message\">The username and password you entered were incorrect, please try again.</p>";
-		
-		if(!$db) $db = new EpiCollectDatabaseConnection();
-		
-		
-		if($db->connected)
-		{
-			$res["dbStatus"] = "succeed";
-			$res["dbResult"] = "Connected";
-		}else{
-			$ex = $db->errorCode;
-			if($ex == 1045)
-			{
-				$res["dbStatus"] = "fail";
-				$res["dbResult"] = "DB Server found, but the combination of the username and password invalid. <a href=\"./test?edit=true\">Edit Settings</a>";
-			}
-			elseif($ex == 1044)
-			{
-				$res["dbStatus"] = "fail";
-				$res["dbResult"] = "DB Server found, but the database specified does not exist or the user specified does not have access to the database. <a href=\"./test?edit=true\">Edit Settings</a>";
-			}
-			else
-			{
-				$res["dbStatus"] = "fail";
-				$res["dbResult"] =  "Could not find the DB Server ";
-			}
-		}
-		
-		if($db->connected)
-		{
-			$dbNameRes = $db->do_query("SHOW DATABASES");
-			if($dbNameRes !== true)
-			{
-				echo $dbNameRes;
-				return;
-			}
-			while($arr = $db->get_row_array())
-			{
-					
-				if( $arr['Database'] == $cfg->settings["database"]["database"])
-				{
-					$res["dbStatus"] = "succeed";
-					$res["dbResult"] = "";
-					break;
-				}
-				else
-				{
-					$res["dbStatus"] = "fail";
-					$res["dbResult"] = "DB Server found, but the database '{$cfg->settings["database"]["database"]}' does not exist.<br />";
-				}
-			}
+    $doit = true;
+    if(!array_key_exists("database", $cfg->settings) || !array_key_exists("server", $cfg->settings["database"]) ||trim($cfg->settings["database"]["server"]) == "")
+    {
+        $res["dbStatus"] = "fail";
+        $res["dbResult"] = "No database server specified, please amend the file ec/settings.php and so that \$DBSERVER equals the name of the MySQL server";
+        $doit = false;
+    }
+    else if(!array_key_exists("user", $cfg->settings["database"]) || trim($cfg->settings["database"]["user"]) == "")
+    {
+        $res["dbStatus"] = "fail";
+        $res["dbResult"] = "No database user specified, please amend the file ec/settings.php so that \$DBUSER and \$DBPASS equal the credentials for MySQL server";
+        $doit = false;
+    }
+    else if(!array_key_exists("database", $cfg->settings["database"]) ||trim($cfg->settings["database"]["database"]) == "")
+    {
+        $res["dbStatus"] = "fail";
+        $res["dbResult"] = "No database name specified, please amend the file ec/settings.php so that \$DBNAME equals the name of the MySQL database";
+        $doit = false;
+    }
 
-			$res["dbPermStatus"] = "fail";
-			$res["dbPermResults"] = "";
-			$res["dbTableStatus"] = "fail";
+    if($doit && !(array_key_exists("edit", $_GET) && $_GET["edit"] === "true"))
+    {
+        if(array_key_exists("redir", $_GET) && $_GET["redir"] === "true") $res["redirMsg"] = "	<p class=\"message\">You have been brought to this page because of a fatal error opening the home page</p>";
+        if(array_key_exists("redir", $_GET) && $_GET["redir"] === "pwd") $res["redirMsg"] = "	<p class=\"message\">The username and password you entered were incorrect, please try again.</p>";
 
-			if($res["dbStatus"] == "succeed")
-			{
-				$dbres = $db->do_query("SHOW GRANTS FOR {$cfg->settings["database"]["user"]};");
-				if($dbres !== true)
-				{
-					$res["dbPermResults"] = $res;
-				}
-				else
-				{
-					$perms = array("SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE");
-					$res ["dbPermResults"] = "Permssions not set, the user {$cfg->settings["database"]["user"]} requires SELECT, UPDATE, INSERT, DELETE and EXECUTE permissions on the database {$cfg->settings["database"]["database"]}";
-					while($arr = $db->get_row_array())
-					{
-						$_g = implode(" -- ", $arr) . "<br />";
-						if(preg_match("/ON (`?{$cfg->settings["database"]["database"]}`?|\*\.\*)/", $_g))
-						{
-							if(preg_match("/ALL PERMISSIONS/i", $_g))
-							{
-								$res["dbPermStatus"] = "fail";
-								$res["dbPermResults"] = "The user account {$cfg->settings["database"]["user"]} by the website should only have SELECT, INSERT, UPDATE, DELETE and EXECUTE priviliges on {$cfg->settings["database"]["database"]}";
-								break;
-							}
-							for($_p = 0; $_p < count($perms); $_p++)
-							{
-								if(preg_match("/{$perms[$_p]}/i", $_g)) // &&  preg_match("/INSERT/", $_g) &&  preg_match("/UPDATE/", $_g) &&  preg_match("/DELETE/", $_g) &&  preg_match("/EXECUTE/", $_g))
-								{
-									unset($perms[$_p]);
-									$perms = array_values($perms);
-									$_p--;
-								}
-							}
-						}
-					}
-					if(count($perms) == 0)
-					{
-						$res["dbPermStatus"] = "succeed";
-						$res["dbPermResults"] = "Permssions Correct";
-					}
-					else
-					{
-						$res ["dbPermResults"] = "Permssions not set, the user {$cfg->settings["database"]["user"]} is missing " . implode(", ", $perms) .  " permissions on the database {$cfg->settings["database"]["database"]}";
-					}
-				}
-			}
-		}
+        if(!$db) $db = new EpiCollectDatabaseConnection();
 
-		if($db->connected && $res["dbPermStatus"] == "succeed")
-		{
 
-			$tblTemplate = array(
-					"device" => false,
-					"deviceuser" => false,
-					"enterprise" => false,
-					"entry" => false,
-					"entryvalue" => false,
-					"entryvaluehistory" => false,
-					"field" => false,
-					"fieldtype" => false,
-					"form" => false,
-					"option" => false,
-					"project" => false,
-					"role" => false,
-					"user" => false,
-					"userprojectpermission" => false	
-			);
+        if($db->connected)
+        {
+            $res["dbStatus"] = "succeed";
+            $res["dbResult"] = "Connected";
+        }
+        else
+        {
+            $ex = $db->errorCode;
+            if($ex == 1045)
+            {
+                $res["dbStatus"] = "fail";
+                $res["dbResult"] = "DB Server found, but the combination of the username and password invalid. <a href=\"./test?edit=true\">Edit Settings</a>";
+            }
+            elseif($ex == 1044)
+            {
+                $res["dbStatus"] = "fail";
+                $res["dbResult"] = "DB Server found, but the database specified does not exist or the user specified does not have access to the database. <a href=\"./test?edit=true\">Edit Settings</a>";
+            }
+            else
+            {
+                $res["dbStatus"] = "fail";
+                $res["dbResult"] =  "Could not find the DB Server ";
+            }
+        }
 
-			$dres = $db->do_query("SHOW TABLES");
-			if($dres !== true)
-			{
-				$res["dbTableStatus"] = "fail";
-				$res["dbTableResult"] = "EpiCollect Database is not set up correctly";
-			}
-			else
-			{
-				$i = 0;
-				while($arr = $db->get_row_array())
-				{
-					$tblTemplate[$arr["Tables_in_{$cfg->settings["database"]["database"]}"]] = true;
-					$i++;
-				}
-				if($i == 0)
-				{
-					$template = 'dbSetup.html';
-					$res["dbTableStatus"] = "fail";
-					$res["dbTableResult"] = "<p>Database is blank,  enter an <b>administrator</b> username and password for the database to create the database tables.</p>
-				<form method=\"post\" action=\"createDB\">
-					<b>Username : </b><input name=\"un\" type=\"text\" /> <b>Password : </b><input name=\"pwd\" type=\"password\" /> <input type=\"hidden\" name=\"create\" value=\"true\" /><input type=\"submit\" value=\"Create Database\" name=\"Submit\" />
-				</form>";
-				}
-				else
-				{
-					$done = true;
-					foreach($tblTemplate as $key => $val)
-					{
-						$done &= $val;
-					}
+        if($db->connected)
+        {
+                $dbNameRes = $db->do_query("SHOW DATABASES");
+                if($dbNameRes !== true)
+                {
+                    echo $dbNameRes;
+                    return;
+                }
+                while($arr = $db->get_row_array())
+                {
 
-					if($done)
-					{
-						$res["dbTableStatus"] = "succeed";
-						$res["dbTableResult"] = "EpiCollect Database ready";
-					}
-					else
-					{
-						$res["dbTableStatus"] = "fail";
-						$res["dbTableResult"] = "EpiCollect Database is not set up correctly";
-					}
-				}
-			}
+                    if( $arr['Database'] == $cfg->settings["database"]["database"])
+                    {
+                        $res["dbStatus"] = "succeed";
+                        $res["dbResult"] = "";
+                        break;
+                    }
+                    else
+                    {
+                        $res["dbStatus"] = "fail";
+                        $res["dbResult"] = "DB Server found, but the database '{$cfg->settings["database"]["database"]}' does not exist.<br />";
+                    }
+                }
 
-		}
-			
-		$res["endStatus"] = array_key_exists("dbTableStatus", $res) ? ($res["dbTableStatus"] == "fail" ? "fail" : "") : "fail";
-		$res["endMsg"] = ($res["endStatus"] == "fail" ? "The MySQL database is not ready, please correct the errors in red above and refresh this page. <a href = \"./test?edit=true\">Configuration tool</a>" : "You are now ready to create EpiCollect projects, place xml project definitions in {$_SERVER["PHP_SELF"]}/xml and visit the <a href=\"createProject.html\">create project</a> page");
-		echo applyTemplate("base.html", $template, $res);
-	}
-	else
-	{
-		$arr = "{";
-		foreach($cfg->settings as $k => $v)
-		{
-			foreach($v as $sk => $sv)
-			{
-				$arr .= "\"{$k}\\\\{$sk}\" : \"$sv\",";
-			}
-		}
-		$arr = trim($arr, ",") . "}";
-			
-		echo applyTemplate("base.html", "setup.html", array("vals" => $arr));
-	}
-	
+                $res["dbPermStatus"] = "fail";
+                $res["dbPermResults"] = "";
+                $res["dbTableStatus"] = "fail";
+
+                if($res["dbStatus"] == "succeed")
+                {
+                    $dbres = $db->do_query("SHOW GRANTS FOR {$cfg->settings["database"]["user"]};");
+                    if($dbres !== true)
+                    {
+                        $res["dbPermResults"] = $res;
+                    }
+                    else
+                    {
+                        $perms = array("SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE");
+                        $res ["dbPermResults"] = "Permssions not set, the user {$cfg->settings["database"]["user"]} requires SELECT, UPDATE, INSERT, DELETE and EXECUTE permissions on the database {$cfg->settings["database"]["database"]}";
+                    while($arr = $db->get_row_array())
+                    {
+                        $_g = implode(" -- ", $arr) . "<br />";
+                        if(preg_match("/ON (`?{$cfg->settings["database"]["database"]}`?|\*\.\*)/", $_g))
+                        {
+                            if(preg_match("/ALL PERMISSIONS/i", $_g))
+                            {
+                                $res["dbPermStatus"] = "fail";
+                                $res["dbPermResults"] = "The user account {$cfg->settings["database"]["user"]} by the website should only have SELECT, INSERT, UPDATE, DELETE and EXECUTE priviliges on {$cfg->settings["database"]["database"]}";
+                                break;
+                            }
+                            for($_p = 0; $_p < count($perms); $_p++)
+                            {
+                                if(preg_match("/{$perms[$_p]}/i", $_g)) // &&  preg_match("/INSERT/", $_g) &&  preg_match("/UPDATE/", $_g) &&  preg_match("/DELETE/", $_g) &&  preg_match("/EXECUTE/", $_g))
+                                {
+                                    unset($perms[$_p]);
+                                    $perms = array_values($perms);
+                                    $_p--;
+                                }
+                            }
+                        }
+                    }
+                    if(count($perms) == 0)
+                    {
+                        $res["dbPermStatus"] = "succeed";
+                        $res["dbPermResults"] = "Permssions Correct";
+                    }
+                    else
+                    {
+                        $res ["dbPermResults"] = "Permssions not set, the user {$cfg->settings["database"]["user"]} is missing " . implode(", ", $perms) .  " permissions on the database {$cfg->settings["database"]["database"]}";
+                    }
+                }
+            }
+        }
+
+        if($db->connected && $res["dbPermStatus"] == "succeed")
+        {
+            $tblTemplate = array(
+                "device" => false,
+                "deviceuser" => false,
+                "enterprise" => false,
+                "entry" => false,
+                "entryvalue" => false,
+                "entryvaluehistory" => false,
+                "field" => false,
+                "fieldtype" => false,
+                "form" => false,
+                "option" => false,
+                "project" => false,
+                "role" => false,
+                "user" => false,
+                "userprojectpermission" => false	
+            );
+
+            $dres = $db->do_query("SHOW TABLES");
+            if($dres !== true)
+            {
+                $res["dbTableStatus"] = "fail";
+                $res["dbTableResult"] = "EpiCollect Database is not set up correctly";
+            }
+            else
+            {
+                $i = 0;
+                while($arr = $db->get_row_array())
+                {
+                    $tblTemplate[$arr["Tables_in_{$cfg->settings["database"]["database"]}"]] = true;
+                    $i++;
+                }
+                if($i == 0)
+                {
+                    $template = 'dbSetup.html';
+                    $res["dbTableStatus"] = "fail";
+                    $res["dbTableResult"] = "<p>Database is blank,  enter an <b>administrator</b> username and password for the database to create the database tables.</p>
+                <form method=\"post\" action=\"createDB\">
+                        <b>Username : </b><input name=\"un\" type=\"text\" /> <b>Password : </b><input name=\"pwd\" type=\"password\" /> <input type=\"hidden\" name=\"create\" value=\"true\" /><input type=\"submit\" value=\"Create Database\" name=\"Submit\" />
+                </form>";
+                }
+                else
+                {
+                    $done = true;
+                    foreach($tblTemplate as $key => $val)
+                    {
+                        $done &= $val;
+                    }
+
+                    if($done)
+                    {
+                        $res["dbTableStatus"] = "succeed";
+                        $res["dbTableResult"] = "EpiCollect Database ready";
+                    }
+                    else
+                    {
+                        $res["dbTableStatus"] = "fail";
+                        $res["dbTableResult"] = "EpiCollect Database is not set up correctly";
+                    }
+                }
+            }
+
+        }
+
+        $res["endStatus"] = array_key_exists("dbTableStatus", $res) ? ($res["dbTableStatus"] == "fail" ? "fail" : "") : "fail";
+        $res["endMsg"] = ($res["endStatus"] == "fail" ? "The MySQL database is not ready, please correct the errors in red above and refresh this page. <a href = \"./test?edit=true\">Configuration tool</a>" : "You are now ready to create EpiCollect projects, place xml project definitions in {$_SERVER["PHP_SELF"]}/xml and visit the <a href=\"createProject.html\">create project</a> page");
+        echo applyTemplate("base.html", $template, $res);
+    }
+    else
+    {
+        $arr = "{";
+        foreach($cfg->settings as $k => $v)
+        {
+            foreach($v as $sk => $sv)
+            {
+                $arr .= "\"{$k}\\\\{$sk}\" : \"$sv\",";
+            }
+        }
+        $arr = trim($arr, ",") . "}";
+
+        echo applyTemplate("base.html", "setup.html", array("vals" => $arr));
+    }	
 }
 
 
-function getClusterMarker()
-{
-	include '/utils/markers.php';
-	$colours = EpiCollectUtils::array_get_if_exists($_GET, "colours");
-	$counts = EpiCollectUtils::array_get_if_exists($_GET, "counts");
-	
-	$colours = trim($colours, '|');
-	$counts = trim($counts, '|');
-	
-	
-	if(!$colours)
-	{
-		$colours = array("#FF0000");
-	}
-	else
-	{
-		$colours = explode("|", $colours);
-	}
-
-	if(!$counts)
-	{
-		$counts = array(111);
-	}
-	else
-	{
-		$counts = explode("|", $counts);
-	}
-		
-	EpiCollectWebApp::ContentType('svg');
-	echo getGroupMarker($colours, $counts);
-}
-
-function getPointMarker()
-{
-	include "./utils/markers.php";
-	
-	$colour = EpiCollectUtils::array_get_if_exists($_GET, "colour");
-	$shape = EpiCollectUtils::array_get_if_exists($_GET, "shape");
-	if(!$colour) $colour = "FF0000";
-	$colour = trim($colour, "#");
-        
-	EpiCollectWebApp::ContentType('svg');
-	echo getMapMaker($colour, $shape);
-}
 
 function uploadData()
 {
@@ -2170,64 +1857,7 @@ function uploadProjectXML()
 	}
 }
 
-function createFromXml()
-{
-	global $url, $SITE_ROOT, $server, $root, $auth;
 
-	$prj = new EcProject();
-	
-	if(array_key_exists("xml", $_REQUEST) && $_REQUEST["xml"] != "")
-	{
-		$xmlFn = "ec/xml/{$_REQUEST["xml"]}";
-	
-		$prj->parse(file_get_contents($xmlFn));
-	}
-	elseif(array_key_exists("name", $_POST))
-	{
-		$prj->name = $_POST["name"];
-		$prj->submission_id = strtolower($prj->name);
-	}
-	elseif(array_key_exists("raw_xml", $_POST))
-	{
-		$prj->parse($_POST["raw_xml"]);
-	}
-	
-	if(!$prj->name || $prj->name == "")
-	{
-		EpiCollectWebApp::flash("No project name provided");
-		EpiCollectWebApp::Redirect("http://$server/$root/createProject.html");
-	}
-	
-        if( $_REQUEST["permission"] == "public" || $_REQUEST["permission"] === "private" )
-        {
-            $prj->isListed = true;
-        }
-        else
-        {
-            $prj->isListed = false;
-        }
-        $prj->isPublic = $_REQUEST["permission"] == "public";
-	$prj->publicSubmission = true;
-        
-	$res = $prj->post();
-	if($res !== true)die($res);
-        
-	$res = $prj->setManagers($auth->getUserEmail());
-
-	// TODO : add submitter $prj->setProjectPermissions($submitters,1);
-	
-	if($res === true)
-	{
-		$server = trim($_SERVER["HTTP_HOST"], "/");
-		$root = trim($SITE_ROOT, "/");
-		 EpiCollectWebApp::Redirect("http://$server/$root/" . preg_replace("/create.*$/", $prj->name, $url));
-	}
-	else
-	{
-		$vals = array("error" => $res);
-		echo applyTemplate("base.html","error.html",$vals);
-	}
-}
 
 function updateXML()
 {
@@ -2674,19 +2304,7 @@ function managerHandler()
 	return;
 }
 
-function createProject()
-{
-	global $url;
 
-	EpiCollectWebApp::DoNotCache();
-
-	$vals =  array(
-		
-	);
-
-	echo applyTemplate("./base.html","./createProject.html",$vals);
-
-}
 
 function updateProject()
 {
@@ -3302,7 +2920,7 @@ function userHandler()
 /*Cookie policy handler*/
 
 //if(!EpiCollectUtils::array_get_if_exists($_SESSION, 'SEEN_COOKIE_MSG')) {
-//	EpiCollectWebApp::flash(sprintf('EpiCollectPlus only uses first party cookies to make the site work. We do not add or read third-party cookies. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $SITE_ROOT));
+//	EpiCollectWebApp::flash(sprintf('EpiCollectPlus uses cookies make the site work. If you are concerned about our use of cookies please read our <a href="%s/privacy.html">Privacy Statement</a>', $SITE_ROOT));
 //	$_SESSION['SEEN_COOKIE_MSG'] = true;
 //}
 ?>

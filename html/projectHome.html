@@ -1,116 +1,32 @@
-{{style}}
-	<style type="text/css">
-		.frmHeader
-		{
-			display: block;
-			background-color: #CCCCCC;
-			border-top-left-radius : 0.5em;
-			border-top-right-radius : 0.5em;
-			font-weight : bold !important;
-			padding : 0.5em 0.5em 0.5em 0.5em;
-			margin-top : 1em;	
-		}
-		
-		.frmHeader:hover
-		{
-			border: 1px solid #999999; 
-			background: #dadada url(css/images/ui-bg_glass_75_dadada_1x400.png) 50% 50% repeat-x; 
-			color: #212121;
-		}
-		
-		.form form
-		{
-			display: block;
-			border: 1px solid #CCCCCC;
-			border-bottom-left-radius : 0.5em;
-			border-bottom-right-radius : 0.5em;
-			padding : 0.5em 0.5em 0.5em 0.5em;
-			
-		}
-		
-		select
-		{
-			width : 15em;
-		}
-	</style>
-{{/style}}
-
+{{page_name}}project{{/page_name}}
 {{script}}
-	
-	<script type="text/javascript">
-			var uid = "{#uid#}";
-		
-			var project = null;
-			var pnl;
-			var gp;
-		
-			var table;
-			
-			$(function()
-			{
-				EpiCollect.loadProject(location.href.trimChars("/") + ".xml", loadCallback);
-			});
-	
-			function loadCallback(prj){
-				project = prj;		
-				var _burl = location.href.trimChars("/");
-				
-				var frmCount = 0;
-				
-				for(frm in project.forms)
-				{
-					frmCount++;
-					
-					if(!project.forms[frm].main) continue;
-					opts = "";
-					for(fld in project.forms[frm].fields)
-					{
-						txt = project.forms[frm].fields[fld].text;
-						if(project.forms[frm].fields[fld].text.length > 40)
-						{
-							txt = txt.substr(0,37) + "...";
-						}
-						
-						if(fld == project.forms[frm].key)
-						{
-							opts = opts + "<option value=\"" +fld + "\" SELECTED>" + txt + "</option>"
-						}
-						else if(project.forms[frm].fields[fld].type != "")
-						{
-							opts = opts + "<option value=\"" +fld + "\">" + txt + "</option>"
-						}
-					}
-					$("#menu").append("<div class=\"form\"> <a class=\"frmHeader ui-state-default ui-corner-top\" href=\"" + _burl + "/" + frm + "\">" + frm + "</a> <form action=\"" + _burl + "/" + frm + "\"><a href=\"" + location.href.trimChars("/") + "/" + frm + "\">View All</a> or Show records where <select id=\"field_" + frm + "\">"+ opts +"</select> is similar to <input type=\"text\" id=\"" + frm + "\" name=\""+project.forms[frm].key+"\"> <input type=\"submit\" value=\"Show records\" /> </form></div>");
-				}
-				
-				if(frmCount == 0)
-				{
-					var curpage = location.href.trimChars('/');
-					$("#main p").remove();
-					$("#menu").append("<p>This project's homepage is <a href=\"" + curpage + "\">" + curpage + "</a></p>");
-					$("#menu").append('<p>Now that you have created this project you can <a href="' + curpage + '/formBuilder">create the project forms</a> and <a href="' + curpage + '/manage">update the project\'s settings</a> to change who can access the project and add an image or desctription to the project</p>');
-					$("#menu").append('<p>Once you have created your forms you can update the forms using the <a href="' + curpage + '/formBuilder">Edit Forms</a> option and manager the other project settings using <a href="' + curpage + '/manage">Manage</a> option above this message.</p>');
-				}
-				
-				$("select").change(function(evt)
-				{
-					$("#" + evt.target.id.replace("field_","")).attr("name", $(evt.target).val());
-				});
-				
-			}
-			
-			
+	<script id="form-template" type="text/template">
+            <% _.each(forms, function(form){%>           
+            <div class="form">
+              <a class="form-header" href="./<%= name %>/<%= form.name %>"><%= form.name %></a>
+              <form action="./<%= name %>/<%= form.name %>"><span><a href="./<%= name %>/<%= form.name %>">View All</a> or Show records where </span>
+              <select id="field_<%= form.name %>">
+                <% _.each(form.fields, function(field){%> <option value="<%= field.name %>" <%if (field.isKey){ %> selected="selected" <% } %>><%= field.text %></option><%})%>
+                </select><span> is similar to </span><input type="text" id="<%= form.name %>" name="<%= form.key %>" /> <input type="submit" value="Show records" /> </form>
+            </div>
+            <%})%>
 	</script>
 {{/script}}
 {{breadcrumbs}}
 &gt; <a href="./{#projectName#}">Project : {#projectName#}</a>
 {{/breadcrumbs}}
 {{main}}
-	<h1>{#projectName#}</h1>
-	<div id="projectPanel">{#adminMenu#} <a href="{#projectName#}.xml" class="button" target="_blank">Show XML</a></div>
-	<p id="projectDescription">
-		<img class="projectImage" src="{#projectImage#}" alt="Project Image" width="{#imgWidth#}" height="{#imgHeight#}" />{#projectDescription#}</p>
+<div class="row-fluid">
+	<h1 class="page-header span12">Project : {#projectName#}</h1>
+</div>
+<div class="row-fluid">
+	<div id="projectPanel" class="btn-toolbar"><span class="btn-group">{#adminMenu#}</span><span class="btn-group"> <a href="{#projectName#}.xml" class="btn" target="_blank">Show XML</a></span></div>
+</div>
+<div class="row-fluid">
+            <p id="projectDescription" class="span9 lead">{#projectDescription#}</p>
+            <p class="span3"><img class="projectImage img-polaroid" src="{#projectImage#}" alt="Project Image" width="{#imgWidth#}" height="{#imgHeight#}" /></p>
 	<p>To view all data from a particular table click the relevant button, or to search, enter an ID in the text box and then click the button</p>
-	<div id="menu"></div>
+</div>
+<div id="menu"></div>
 	
 {{/main}}

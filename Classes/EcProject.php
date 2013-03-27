@@ -48,9 +48,8 @@ class EcProject{
 			);
 		}
 		
-		public function fetch()
+		public function fetch($db)
 		{
-			$db = new EpiCollectDatabaseConnection();
 			if($this->name != "")
 			{
 				//$res = $db->exec_sp("getProject", array($this->name));
@@ -67,33 +66,32 @@ class EcProject{
 					$this->allowDownloadEdits = true;
 				}
 				
-				$db = new EpiCollectDatabaseConnection();
 				//get forms	
 				$res = $db->exec_sp("getForms", array($this->name));
 				
 				if($res === true)
 				{
 						
-					while($arr = $db->get_row_array())
-					{
-						
-						$frm = new EcTable($this);
-						$frm->fromArray($arr);
-						//get fields
-						
-						$frm->fetch();
-						//get options
-						if($frm->number > 0) $this->tables[$frm->name] = $frm;
-						
-					}
-					foreach($this->tables as $tname => $tbl)
-					{
-						foreach($tbl->branches as $branch)
-						{
-								$this->tables[$branch]->branchOf = $tname;
-						}
-					}
-					
+                                    while($arr = $db->get_row_array())
+                                    {
+
+                                        $frm = new EcTable($this);
+                                        $frm->fromArray($arr);
+                                        //get fields
+
+                                        $frm->fetch($db);
+                                        //get options
+                                        if($frm->number > 0) $this->tables[$frm->name] = $frm;
+
+                                    }
+                                    foreach($this->tables as $tname => $tbl)
+                                    {
+                                        foreach($tbl->branches as $branch)
+                                        {
+                                            $this->tables[$branch]->branchOf = $tname;
+                                        }
+                                    }
+
 				}
 				else
 				{
@@ -308,10 +306,8 @@ class EcProject{
 			return $dat->getTimestamp() . $arr["ttl"];
 		}
 		
-		public function checkPermission($uid)
+		public function checkPermission($db, $auth, $uid)
 		{
-		 	global $db, $auth;
-		 	
 		 	if($auth->isServerManager()) return 3;
 		
 		 	$role = 0;
@@ -323,9 +319,7 @@ class EcProject{
 			
 			while($obj = $db->get_row_object()) // if no one has any permissions on the project
 			{
-			
-				$role = $obj->role;
-			
+                            $role = $obj->role;
 			}
 			
 			$db->getLastResultSet();
@@ -412,41 +406,46 @@ class EcProject{
 			return $tbl;
 		}
 		
-		private function setPermission ($emails, $lvl)
+                /**
+                 * 
+                 * @param EpiCollectDatabaseConnection $db
+                 * @param AuthManager $auth
+                 * @param String $emails
+                 * @param Int $lvl
+                 * @return boolean|string
+                 */
+		private function setPermission ($db, $auth, $emails, $lvl)
 		{
-			if(trim($emails) == '') return true;		
-			if(!preg_match('/([a-z0-9\._%+-]+@[a-z0-9\.-]+\.[a-z]{2,4}\,?)+$/i',$emails)) return "invalid email $emails";
-			if(!is_numeric($this->id) || strstr($this->id, ".")) return "ID {$this->id} is not properly set";
-			
-			global $auth;
-			$emails = rtrim(strtolower($emails), ","); //as emails are case insensitive we will make them all lowercase to make comparison easier
-			
-			$db = new EpiCollectDatabaseConnection();
-			if($this->checkPermission($auth->getEcUserId()) == 3)
-			{
-                            //add any new emails
-                            $newUsers = str_replace(",", "' as Email UNION SELECT '", $emails);
-                            $sql = "INSERT INTO user (Email) SELECT * FROM (SELECT '$newUsers' as Email) a where a.email NOT IN (SELECT Email from user);";
-                            //echo $sql;
-                            $res = $db->do_query($sql);
-                            if($res !== true) return $res;
+                    if(trim($emails) == '') return true;		
+                    if(!preg_match('/([a-z0-9\._%+-]+@[a-z0-9\.-]+\.[a-z]{2,4}\,?)+$/i',$emails)) return "invalid email $emails";
+                    if(!is_numeric($this->id) || strstr($this->id, ".")) return "ID {$this->id} is not properly set";
 
-                            $sql = "delete from userprojectpermission where project = {$this->id} and role = $lvl";
-                            $res = $db->do_query($sql);
-                            if($res===true)
-                            {
-                                            $db = new EpiCollectDatabaseConnection();
-                                            $emails = str_replace(",", "','", $emails);
-                                            $sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
-                                            $res = $db->do_query($sql);
+                    $emails = rtrim(strtolower($emails), ","); //as emails are case insensitive we will make them all lowercase to make comparison easier
 
-                            }
-                            return $res;
-			}
-			else
-			{
-                            return "You do not have permission to update this project";
-			}
+                    if($this->checkPermission($db, $auth, $auth->getEcUserId()) == 3)
+                    {
+                        //add any new emails
+                        $newUsers = str_replace(",", "' as Email UNION SELECT '", $emails);
+                        $sql = "INSERT INTO user (Email) SELECT * FROM (SELECT '$newUsers' as Email) a where a.email NOT IN (SELECT Email from user);";
+                        //echo $sql;
+                        $res = $db->do_query($sql);
+                        if($res !== true) return $res;
+
+                        $sql = "delete from userprojectpermission where project = {$this->id} and role = $lvl";
+                        $res = $db->do_query($sql);
+                        if($res===true)
+                        {
+                            $emails = str_replace(",", "','", $emails);
+                            $sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
+                            $res = $db->do_query($sql);
+
+                        }
+                        return $res;
+                    }
+                    else
+                    {
+                        return "You do not have permission to update this project";
+                    }
 		}
 		
                 
@@ -455,139 +454,137 @@ class EcProject{
                  * @param {array} $emails 
                  * @return type
                  */
-		public function setManagers($emails)
+		public function setManagers($db, $auth, $emails)
 		{
-                    return $this->setPermission($emails, 3);
+                    return $this->setPermission($db, $auth, $emails, 3);
 		}
 		
-		public function setCurators($emails)
+		public function setCurators($db, $auth, $emails)
 		{
-                    return $this->setPermission($emails, 2);
+                    return $this->setPermission($db, $auth, $emails, 2);
 		}
 		
-		public function setSubmitters($emails)
+		public function setSubmitters($db, $auth, $emails)
 		{
-                    return $this->setPermission($emails, 1);
+                    return $this->setPermission($db, $auth, $emails, 1);
 		}
-		public function getManagers()
+		public function getManagers($db, $auth)
 		{
-                    return $this->getPermission(3);
-		}
-		
-		public function getCurators()
-		{
-                    return $this->getPermission(2);
+                    return $this->getPermission($db, $auth, 3);
 		}
 		
-		public function getSubmitters()
+		public function getCurators($db, $auth)
 		{
-                    return $this->getPermission(1);
+                    return $this->getPermission($db, $auth, 2);
 		}
-		public function post()
+		
+		public function getSubmitters($db, $auth)
 		{
-			global $auth;
-			$db=new EpiCollectDatabaseConnection();
+                    return $this->getPermission($db, $auth, 1);
+		}
+                
+		public function post($db, $auth)
+		{
 
-			if( $this->submission_id == '' ) $this->submission_id = str_replace($this->name, ' ', '_');
-			
-			$sub_id = $this->submission_id;
-			
-			if($this->allowDownloadEdits)
-			{
-				$sub_id = sprintf('ec_ade::%s', $sub_id);
-			}
-			
-			$res = $db->do_query("INSERT INTO project(name, submission_id, description, image, isPublic, isListed, publicSubmission, uploadToLocalServer, downloadFromLocalServer) VALUES ('{$this->name}', '{$sub_id}', '{$this->description}', '{$this->image}', " . ($this->isPublic ? "1" : "0") . ", " . ($this->isListed ? "1" : "0") . ", " . ($this->publicSubmission ? "1" : "0") . ", '{$this->uploadToLocalServer}', '{$this->downloadFromLocalServer}')");
-			if( $res === true )
-			{
-				$this->fetch();
-				foreach($this->tables as $tbl)
-				{
-					$r = $tbl->addToDb();
-					if($r !== true) return $r;
-				}
-				
-				$qry = "INSERT INTO userprojectpermission (user, project, role) VALUES ({$auth->getEcUserId()}, {$this->id}, 3)";
-				$res = $db->do_multi_query($qry);
-				if(!$res === true) die($res + " " + $qry);
-				return true;
-			}
-			else
-			{
-				return $res;
-			}
+                    if( $this->submission_id == '' ) $this->submission_id = str_replace($this->name, ' ', '_');
+
+                    $sub_id = $this->submission_id;
+
+                    if($this->allowDownloadEdits)
+                    {
+                            $sub_id = sprintf('ec_ade::%s', $sub_id);
+                    }
+
+                    $res = $db->do_query("INSERT INTO project(name, submission_id, description, image, isPublic, isListed, publicSubmission, uploadToLocalServer, downloadFromLocalServer) VALUES ('{$this->name}', '{$sub_id}', '{$this->description}', '{$this->image}', " . ($this->isPublic ? "1" : "0") . ", " . ($this->isListed ? "1" : "0") . ", " . ($this->publicSubmission ? "1" : "0") . ", '{$this->uploadToLocalServer}', '{$this->downloadFromLocalServer}')");
+                    if( $res === true )
+                    {
+                        $this->id = $db->last_id();
+                            foreach($this->tables as $tbl)
+                            {
+                                    $r = $tbl->addToDb();
+                                    if($r !== true) return $r;
+                            }
+
+                            $qry = "INSERT INTO userprojectpermission (user, project, role) VALUES ({$auth->getEcUserId()}, {$this->id}, 3)";
+                            $res = $db->do_multi_query($qry);
+                            if(!$res === true) die($res + " " + $qry);
+                            return true;
+                    }
+                    else
+                    {
+                            return $res;
+                    }
 			
 		}
 		
-		public function put($oldName)
+		public function put($auth, $log, $db, $oldName)
 		{
-			global $auth, $log, $db;
-			
-			/**
-			 * 
-			 */
-						
-			//$log = new Logger('Ec2');
-			$log->write('info', 'Starting project update');
-			
-			//$db = new dbConnection();
-			
-			if($this->checkPermission($auth->getEcUserId()) == 3)
-			{
-				$log->write('info', 'User has permission');
-				//$res = $db->beginTransaction();
-				//if($res !== true) return $res;
-				
-				$log->write('info', 'transaction started');
-				
-				$res = $db->do_query("UPDATE project SET description = " . $db->stringVal($this->description).", image = " . $db->stringVal($this->image).",
-									 isPublic  = " . $db->boolVal($this->isPublic) . ", isListed = " . $db->boolVal($this->isListed) . ",
-									publicSubmission = " . $db->boolVal($this->publicSubmission) . ", uploadToLocalServer = '{$this->uploadToLocalServer}', downloadFromLocalServer = '{$this->downloadFromLocalServer}' WHERE id = {$this->id} AND name = '$oldName'");
-				if($res !== true) return $res;
-				
-				if($this->name !== $oldName)
-				{ 
-					//update form
-					$sql = "UPDATE form SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
-					$res = $db->do_query($sql);
-					if($res !== true) return $res;
-					//update fields
-					$sql = "UPDATE field SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
-					$res = $db->do_query($sql);
-					if($res !== true) return $res;
-					//update entries
-					$sql = "UPDATE entry SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
-					$res = $db->do_query($sql);
-					if($res !== true) return $res;
-					//update entryvalues
-					$sql = "UPDATE entryvalue SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
-					$res = $db->do_query($sql);
-					if($res !== true) return $res;
-				}
-				
-				
-				$log->write('info', 'Project details updated');
-				
-				foreach($this->tables as $tbl)
-				{
-						$log->write('info', "Updating form {$tbl->name}");
-					
-						$res = $tbl->id ? $tbl->update() : $tbl->addToDb();
-						if($res !== true) {
-								$log->write('error', "Updating form {$tbl->name} failed $res");
-								$db->rollbackTransaction();
-								return $res;
-						}
-						$log->write('info', "Updated form {$tbl->name}");
-				}
-				$db->commitTransaction();
-				$log->write('info', "Update done");
-				return true;
-			}	
-			else
-			{
-				return "You do not have permission to update this project";
-			}
+
+                    /**
+                     * 
+                     */
+
+                    //$log = new Logger('Ec2');
+                    $log->write('info', 'Starting project update');
+
+                    //$db = new dbConnection();
+
+                    if($this->checkPermission($auth->getEcUserId()) == 3)
+                    {
+                        $log->write('info', 'User has permission');
+                        //$res = $db->beginTransaction();
+                        //if($res !== true) return $res;
+
+                        $log->write('info', 'transaction started');
+
+                        $res = $db->do_query("UPDATE project SET description = " . $db->stringVal($this->description).", image = " . $db->stringVal($this->image).",
+                                                                 isPublic  = " . $db->boolVal($this->isPublic) . ", isListed = " . $db->boolVal($this->isListed) . ",
+                                                                publicSubmission = " . $db->boolVal($this->publicSubmission) . ", uploadToLocalServer = '{$this->uploadToLocalServer}', downloadFromLocalServer = '{$this->downloadFromLocalServer}' WHERE id = {$this->id} AND name = '$oldName'");
+                        if($res !== true) return $res;
+
+                        if($this->name !== $oldName)
+                        { 
+                                //update form
+                                $sql = "UPDATE form SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
+                                $res = $db->do_query($sql);
+                                if($res !== true) return $res;
+                                //update fields
+                                $sql = "UPDATE field SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
+                                $res = $db->do_query($sql);
+                                if($res !== true) return $res;
+                                //update entries
+                                $sql = "UPDATE entry SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
+                                $res = $db->do_query($sql);
+                                if($res !== true) return $res;
+                                //update entryvalues
+                                $sql = "UPDATE entryvalue SET projectName = '{$this->name}' WHERE projectName = '$oldName'";
+                                $res = $db->do_query($sql);
+                                if($res !== true) return $res;
+                        }
+
+
+                        $log->write('info', 'Project details updated');
+
+                        foreach($this->tables as $tbl)
+                        {
+                                        $log->write('info', "Updating form {$tbl->name}");
+
+                                        $res = $tbl->id ? $tbl->update() : $tbl->addToDb();
+                                        if($res !== true) {
+                                                        $log->write('error', "Updating form {$tbl->name} failed $res");
+                                                        $db->rollbackTransaction();
+                                                        return $res;
+                                        }
+                                        $log->write('info', "Updated form {$tbl->name}");
+                        }
+                        $db->commitTransaction();
+                        $log->write('info', "Update done");
+                        return true;
+                    }	
+                    else
+                    {
+                        return "You do not have permission to update this project";
+                    }
 		}
 		
 		function deleteProject()
@@ -684,19 +681,19 @@ class EcProject{
 				return $sql;
 		}
 		
-		public function toXML()
+		public function toXML($base_url)
 		{
-				global $SITE_ROOT, $XML_VERSION;
+				
 		
 				$protocol = 'http';
 				if (EpiCollectUtils::array_get_if_exists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
 				
 				$xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n
-<ecml version=\"$XML_VERSION\">
+<ecml version=\"1.0\">
 	<model>
 		<submission id=\"{$this->submission_id}\" projectName=\"{$this->name}\" allowDownloadEdits=\"". ($this->allowDownloadEdits ? "true" : "false") . "\" versionNumber=\"{$this->ecVersionNumber}\" />
-		<uploadToServer>$protocol://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/{$this->name}/upload</uploadToServer>
-		<downloadFromServer>$protocol://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/{$this->name}/download</downloadFromServer>";
+		<uploadToServer>{$base_url}/{$this->name}/upload</uploadToServer>
+		<downloadFromServer>{$base_url}/{$this->name}/download</downloadFromServer>";
 		if($this->uploadToLocalServer) $xml .= "\n\t\t<uploadToLocalServer>{$this->uploadToLocalServer}</uploadToLocalServer>";
 		if($this->downloadFromLocalServer) $xml .= "\n\t\t<downloadFromLocalServer>{$this->downloadFromLocalServer}</downloadFromLocalServer>";
 	$xml .= "\n\t</model>\n";
@@ -733,10 +730,8 @@ class EcProject{
 				return $res;
 		}
 		
-		public static function getPublicProjects()
-		{
-			global $db;
-				
+		public static function getPublicProjects($db)
+		{			
 			$qry = 'SELECT p.name as name, p.ttl as ttl, p.ttl24 as ttl24 FROM (SELECT id,name, count(entry.idEntry) as ttl, x.ttl as ttl24 FROM project left join entry on project.name = entry.projectName left join (select count(idEntry) as ttl, projectName from entry where created > ((UNIX_TIMESTAMP() - 86400)*1000) group by projectName) x on project.name = x.projectName WHERE project.isListed = 1 group by project.name) p order by p.name asc';
 			$res = $db->do_query($qry);
 			$projects = array();
@@ -760,10 +755,8 @@ class EcProject{
 			return $projects;
 		}
 		
-		public static function getUserProjects($uid)
-		{
-			global $db;
-			
+		public static function getUserProjects($db, $uid)
+		{			
 			$qry = sprintf('SELECT p.name as name, p.ttl as ttl, p.ttl24 as ttl24, p.isListed as listed FROM (SELECT id,name, count(entry.idEntry) as ttl, x.ttl as ttl24, isListed FROM project left join entry on project.name = entry.projectName left join (select count(idEntry) as ttl, projectName from entry where created > ((UNIX_TIMESTAMP() - 86400)*1000) group by projectName) x on project.name = x.projectName group by project.name) p join userprojectpermission upp on p.id = upp.project WHERE upp.user = %s order by p.name asc', $uid);
 			$res = $db->do_query($qry);
 			$projects = array();

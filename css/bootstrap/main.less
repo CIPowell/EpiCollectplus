@@ -50,14 +50,11 @@ body
     z-index: 5;
 }
 
-.ecplus-projectlist, .ecplus-userprojects{
+#project-list{
     h1
     {
         padding : @paddingSmall;
-        /*border-radius: @baseBorderRadius;*/
         border-bottom: 2px solid @navbarBorder;
-        /*background-color : @navbarBackground;*/
-        /*color: @white;*/
     }
 
     div.project
@@ -74,25 +71,58 @@ body
 
     }   
 
-
     .total
     {
-            color: #888888;
-            font-size : 10pt;
-            margin: 0 0 0 1em;
+        color: #888888;
+        font-size : 10pt;
+        margin: 0 0 0 1em;
     }
 }
+
+.form
+{
+    .form-header
+    {
+        display : block;
+        font-weight : bold;
+        font-size : @fontSizeLarge;
+        color : @white;
+        #gradient > .horizontal(@grayDark, @white);
+        padding : @paddingLarge;
+        border-top-left-radius : @borderRadiusLarge;
+        border-top-right-radius : @borderRadiusLarge;
+        border-right : 2px solid @grayDark;
+        border-top : 2px solid @grayDark;
+    }
+    
+    form
+    {
+        display : block;
+        padding : @paddingLarge;
+        border-left : 2px solid @grayDark;
+        border-bottom : 2px solid @grayDark;
+        border-right : 2px solid @grayDark;
+        border-bottom-left-radius : @borderRadiusLarge;
+        border-bottom-right-radius : @borderRadiusLarge;
+        
+    }
+}
+
 
 .login-provider
 {
     border : 1px solid @grayLight;
-    padding : 0em 0.5em 0.5em 0.5em;
-    margin-bottom:2em;
+    padding : 0em 0.5em 1em 1em;
+    margin-bottom:1em;
+    margin-top : 2em;
+    border-radius : 0.5em;
 
     h3
     {
-        margin-top: -1.75em;
+        margin-top: -1.25em;
         background-color: @white;
+        width: 10em;
+        padding-left: 0.5em;
     }
 }
 
@@ -109,6 +139,9 @@ msg
 
 .submit-buttons
 {
+    margin-top : 1em;
+    padding-top : 1em;
+    border-top : 1px solid @tableBorder;
     text-align : right;
 }
 

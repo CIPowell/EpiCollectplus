@@ -1,9 +1,11 @@
-{{style}}
-{{/style}}
+{{page_name}}index{{/page_name}}
 {{script}}
-	<style type="text/css">
-               
-	</style>
+	<script id="project-template" type="text/template">
+            <div class="project">
+                <a href="./<%= name%>"><%= name%></a>
+                <div class="total"><%= ttl%> entries with <b><%= ttl24%></b> in the last 24 hours </div>
+            </div>
+	</script>
 {{/script}}
 {{main}}
 	{#flashes#}
@@ -13,10 +15,13 @@
             </div>
             <div class="span6">
                 <div class="row">            
-                    <div class="span6">{#projects#}</div>
+                    <div class="span6">
+                        <h1>Popular Projects</h1>
+                        <div id="project-list"></div>
+                    </div>
                 </div>
                 <div class="row">
-                    <div class="span6">{#userprojects#}</div>
+                    <div class="span6"></div>
                 </div>
             </div>
         </div>
