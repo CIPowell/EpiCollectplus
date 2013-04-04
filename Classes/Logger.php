@@ -12,12 +12,12 @@
 		{
 			if(!$this->db) return;
 			
-			$dat = EpiCollectUtils::getTimestamp();
+			$ts = EpiCollectUtils::getTimestamp();
 			
 			$level = $this->db->escapeArg($level);
 			$msg = $this->db->escapeArg($msg);
 			
-			$qry = "INSERT INTO logs(`Timestamp`, `Type`, `Message`) VALUES ($ts, '$level', '$msg')";
+			$qry = "INSERT INTO logs(`Timestamp`, `Type`, `Message`) VALUES ($ts, $level, $msg)";
 			$res = $this->db->do_query($qry);
 			if($res !== true) throw new ErrorException($res);	
 		}

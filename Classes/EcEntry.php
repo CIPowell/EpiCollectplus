@@ -193,101 +193,101 @@
 			//}
 		}
 		
-		public static function postEntries($entries)
+		public static function postEntries($db, $entries)
 		{
-				global $db;
 				
-				$qry = 'INSERT INTO entry (form, projectName, formName, DeviceId, created, uploaded, user, bulk_insert_key) VALUES ';
 				
-				$len = count($entries);
-				$sessId =  session_id();
-				
-				$prj = new EcProject();
-				$prj->name = $entries[0]->projectName;
-				$prj->fetch();
-				
-				$keyfield = $prj->tables[$entries[0]->formName]->key;
-				
-				for( $i = 0; $i < $len; ++$i)
-				{
-					if( !$entries[$i]->created || $entries[$i]->created == "NULL") { $entries[$i]->created = EpiCollectUtils::getTimestamp(); }
-                                        else if(!is_numeric($entries[$i]->created )) {$entries[$i]->created = EcTable::unformatCreated($entries[$i]->created);}
-					
-					if($prj->tables[$entries[$i]->formName]->checkExists($entries[$i]->values[$keyfield]))
-					{
-						throw new Exception(sprintf('Your data could not be uploaded, there was a duplicate key for entry %s on line %s of your CSV file', $entries[$i]->values[$keyfield], $i + 2));
-					}
-					
-					$entries[$i]->insert_key = sprintf('%s%s', $sessId, $i);  
-					$qry .= sprintf('%s (%s, %s, %s, %s, %s, \'%s\', 0, \'%s\')', 
-							($i > 0 ? ',' : ''),
-							$entries[$i]->form->id, 
-							$db->stringVal($entries[$i]->projectName), 
-							$db->stringVal($entries[$i]->formName),  
-							$db->stringVal($entries[$i]->deviceId), 
-							$entries[$i]->created, 
-							EpiCollectUtils::getTimestamp("Y-m-d H:i:s"), 
-							$entries[$i]->insert_key);
-					
-					//echo $_SERVER['REQUEST_TIME'] . '<br />\r\n';
-				}
-				$res = $db->do_query($qry);
-				if($res !== true) die($res);
-				
-				$qry = sprintf('SELECT bulk_insert_key, idEntry FROM  entry where bulk_insert_key Like \'%s%%\'', $sessId);				
-				$res = $db->do_query($qry);
-				if($res !== true) die($res);
-			
-				$insert_keys = array();
-				while($arr = $db->get_row_array())
-				{
-					$insert_keys[$arr["bulk_insert_key"]] = $arr["idEntry"];
-				}
-				
-				$qry = 'INSERT INTO entryvalue (field, projectName, formName, fieldName, value, entry) VALUES ';
-				for($i = 0; $i < $len; ++$i)
-				{
-					if(trim($entries[$i]->values[$entries[$i]->form->key]) == '') return 'Key values cannot be blank'; 
-					
-					$keys = array_keys($entries[$i]->values);
-					$length = count($keys);
-					
-					for($j = 0; $j < $length; ++$j)
-					{
-						
-						if($entries[$i]->form->fields[$keys[$j]])
-						{
-							if(($entries[$i]->form->fields[$keys[$j]]->type == 'gps' || $entries[$i]->form->fields[$keys[$j]]->type == 'location') && !is_string($entries[$i]->values[$keys[$j]]))
-							{
-								$qry .= sprintf('%s ( %s, \'%s\', \'%s\', \'%s\', %s, %s )', 
-										($i > 0 || $j > 0 ? ',' : ''),
-										$entries[$i]->form->fields[$keys[$j]]->idField, 
-										$entries[$i]->form->survey->name, 
-										$entries[$i]->form->name, 
-										$keys[$j],
-										$db->stringVal(json_encode($entries[$i]->values[$keys[$j]])), 
-										$insert_keys[$entries[$i]->insert_key]);
-							}
-							else
-							{
-								$qry .= sprintf('%s ( %s, \'%s\', \'%s\', \'%s\', %s, %s)', 
-										($i > 0 || $j > 0 ? ',' : ''),
-										$entries[$i]->form->fields[$keys[$j]]->idField, 
-										$entries[$i]->form->survey->name, 
-										$entries[$i]->form->name, 
-										$keys[$j], 
-										$db->stringVal($entries[$i]->values[$keys[$j]]), 
-										$insert_keys[$entries[$i]->insert_key]);
-							}
-						}
-					}
-				}
-				$res = $db->do_query($qry);
-				if($res !== true) die($res);
-				
-				$qry = sprintf('UPDATE entry SET  bulk_insert_key = NULL WHERE bulk_insert_key Like \'%s%%\'', $sessId);				
-				$res = $db->do_query($qry);
-				return $res;
+                    $qry = 'INSERT INTO entry (form, projectName, formName, DeviceId, created, uploaded, user, bulk_insert_key) VALUES ';
+
+                    $len = count($entries);
+                    $sessId =  session_id();
+
+                    $prj = new EcProject();
+                    $prj->name = $entries[0]->projectName;
+                    $prj->fetch($db);
+
+                    $keyfield = $prj->tables[$entries[0]->formName]->key;
+
+                    for( $i = 0; $i < $len; ++$i)
+                    {
+                            if( !$entries[$i]->created || $entries[$i]->created == "NULL") { $entries[$i]->created = EpiCollectUtils::getTimestamp(); }
+                            else if(!is_numeric($entries[$i]->created )) {$entries[$i]->created = EcTable::unformatCreated($entries[$i]->created);}
+
+                            if($prj->tables[$entries[$i]->formName]->checkExists($db, $entries[$i]->values[$keyfield]))
+                            {
+                                    throw new Exception(sprintf('Your data could not be uploaded, there was a duplicate key for entry %s on line %s of your CSV file', $entries[$i]->values[$keyfield], $i + 2));
+                            }
+
+                            $entries[$i]->insert_key = sprintf('%s%s', $sessId, $i);  
+                            $qry .= sprintf('%s (%s, %s, %s, %s, %s, \'%s\', 0, \'%s\')', 
+                                            ($i > 0 ? ',' : ''),
+                                            $entries[$i]->form->id, 
+                                            $db->stringVal($entries[$i]->projectName), 
+                                            $db->stringVal($entries[$i]->formName),  
+                                            $db->stringVal($entries[$i]->deviceId), 
+                                            $entries[$i]->created, 
+                                            EpiCollectUtils::getTimestamp("Y-m-d H:i:s"), 
+                                            $entries[$i]->insert_key);
+
+                            //echo $_SERVER['REQUEST_TIME'] . '<br />\r\n';
+                    }
+                    $res = $db->do_query($qry);
+                    if($res !== true) die($res);
+
+                    $qry = sprintf('SELECT bulk_insert_key, idEntry FROM  entry where bulk_insert_key Like \'%s%%\'', $sessId);				
+                    $res = $db->do_query($qry);
+                    if($res !== true) die($res);
+
+                    $insert_keys = array();
+                    while($arr = $db->get_row_array())
+                    {
+                            $insert_keys[$arr["bulk_insert_key"]] = $arr["idEntry"];
+                    }
+
+                    $qry = 'INSERT INTO entryvalue (field, projectName, formName, fieldName, value, entry) VALUES ';
+                    for($i = 0; $i < $len; ++$i)
+                    {
+                            if(trim($entries[$i]->values[$entries[$i]->form->key]) == '') return 'Key values cannot be blank'; 
+
+                            $keys = array_keys($entries[$i]->values);
+                            $length = count($keys);
+
+                            for($j = 0; $j < $length; ++$j)
+                            {
+
+                                    if($entries[$i]->form->fields[$keys[$j]])
+                                    {
+                                            if(($entries[$i]->form->fields[$keys[$j]]->type == 'gps' || $entries[$i]->form->fields[$keys[$j]]->type == 'location') && !is_string($entries[$i]->values[$keys[$j]]))
+                                            {
+                                                    $qry .= sprintf('%s ( %s, \'%s\', \'%s\', \'%s\', %s, %s )', 
+                                                                    ($i > 0 || $j > 0 ? ',' : ''),
+                                                                    $entries[$i]->form->fields[$keys[$j]]->idField, 
+                                                                    $entries[$i]->form->survey->name, 
+                                                                    $entries[$i]->form->name, 
+                                                                    $keys[$j],
+                                                                    $db->stringVal(json_encode($entries[$i]->values[$keys[$j]])), 
+                                                                    $insert_keys[$entries[$i]->insert_key]);
+                                            }
+                                            else
+                                            {
+                                                    $qry .= sprintf('%s ( %s, \'%s\', \'%s\', \'%s\', %s, %s)', 
+                                                                    ($i > 0 || $j > 0 ? ',' : ''),
+                                                                    $entries[$i]->form->fields[$keys[$j]]->idField, 
+                                                                    $entries[$i]->form->survey->name, 
+                                                                    $entries[$i]->form->name, 
+                                                                    $keys[$j], 
+                                                                    $db->stringVal($entries[$i]->values[$keys[$j]]), 
+                                                                    $insert_keys[$entries[$i]->insert_key]);
+                                            }
+                                    }
+                            }
+                    }
+                    $res = $db->do_query($qry);
+                    if($res !== true) die($res);
+
+                    $qry = sprintf('UPDATE entry SET  bulk_insert_key = NULL WHERE bulk_insert_key Like \'%s%%\'', $sessId);				
+                    $res = $db->do_query($qry);
+                    return $res;
 		}
 		
 		public function put() //edit!

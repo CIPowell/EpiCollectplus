@@ -22,7 +22,7 @@ require.config({
   }
 });
 
-require(['EpiCollectPlus'], function(EpiCollect){
+require(['EpiCollectPlus', 'bootstrap-collapse'], function(EpiCollect){
     $('input[name=name]').on('change', function(evt){
             if($('.projectName').text() != '') return;
 

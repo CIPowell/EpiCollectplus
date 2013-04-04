@@ -43,7 +43,6 @@ require(['EpiCollectPlus'], function(EpiCollect){
 
         el.append(f_template(project));
         
-        
 
         if(_.values(project.forms).length == 0)
         {

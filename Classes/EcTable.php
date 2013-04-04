@@ -403,10 +403,8 @@
 		 * @return mysqli_result
 		 * 
 		 */
-		public function ask($args = false, $offset = 0, $limit = 0, $sortField = 'created', $sortDir = 'asc', $exact = false, $format = 'object', $includeChildCount = true)
+		public function ask($db, $args = false, $offset = 0, $limit = 0, $sortField = 'created', $sortDir = 'asc', $exact = false, $format = 'object', $includeChildCount = true)
 		{
-			global $db;
-			
 			if(!$sortField) $sortField = 'created';
 			if(!$sortDir) $sortDir = 'asc';
 			$qry = '';
@@ -661,16 +659,15 @@
 			//return;
 			unset($select, $join, $where, $group, $order, $limit_s);
 			
-			$res = $db->do_multi_query($qry);
+			$res = $db->do_query($qry);
 			if($res !== true) return $res;
-			
-			return $db->getLastResultSet();
+			                       
+			return true;
 				
 		}
 		
-		function checkExists($keyValue)
+		function checkExists($db, $keyValue)
 		{
-			global $db;
 			$sql = sprintf('SELECT entry, count(idEntryValue) AS cnt FROM entryvalue WHERE projectName = \'%s\' AND formName = \'%s\' AND fieldName= \'%s\' AND value = \'%s\' COLLATE utf8_bin', $this->projectName, $this->name, $this->key, $keyValue);
 			
 			$res = $db->do_query($sql);
@@ -679,7 +676,7 @@
 			return $count;			
 		}
 		
-		public function recieve($n = 1, $full_urls = false, $base_url = "")
+		public function recieve($db, $n = 1, $full_urls = false, $base_url = "")
 		{
 			$ret = array();
 			
@@ -699,7 +696,7 @@
 						}
 						elseif($full_urls && $this->fields[$kv[0]]->type == "photo" && $kv[1] != '')
 						{
-							$arr[$kv[0]] = sprintf('%s/__getImage?img=%s',trim($base_url, '/') . '/', $kv[1]);
+							$arr[$kv[0]] = sprintf('%s/%s/%s/__getImage?img=%s',trim($base_url, '/'), $this->projectName, $this->name, $kv[1]);
 						}
 						elseif ($full_urls && $this->fields[$kv[0]]->valueIsFile() && $kv[1] != '')
 						{
@@ -717,9 +714,8 @@
 			return $ret;
 		}
 		
-		public function update()
+		public function update($db)
 		{
-			global $db;// = new dbConnection();
 			
 			$db->beginTransaction();
 			$sql = "UPDATE form set version = {$this->version}, name = '{$this->name}', keyField = '{$this->key}', table_num = {$this->number}, isMain = " . ($this->isMain ? 1 : 0) . ", `group` = " . $db->numVal($this->group)  . " WHERE project = {$this->survey->id} AND idForm = " . $this->id;
@@ -888,7 +884,7 @@
 			return $vals;
 		}
 		
-		public function parseEntriesCSV($fp)
+		public function parseEntriesCSV($db, $fp)
 		{
 			//$lines = explode("\r\n", $txt);
 			// assumes that the first line is the header
@@ -979,12 +975,12 @@
 				
 				if(++$x % 100 == 0)
 				{
-					$entry->postEntries($ents);
+					$entry->postEntries($db, $ents);
 					unset($ents);
 					$ents = array();
 				}							
 			}
-			if(count($ents) > 0) $entry->postEntries($ents);
+			if(count($ents) > 0) $entry->postEntries($db, $ents);
 			return true;
 		}
 		

@@ -671,7 +671,7 @@ class EpiCollectWebApp
             $res = $prj->id ? $prj->push() : $prj->post();
             if( $res !== true )
             {
-                    echo $res;
+                    return $res;
             }
 
             if( $_POST['admins'] && $res === true )
@@ -688,7 +688,7 @@ class EpiCollectWebApp
             {
                     $res = $prj->setSubmitters($_POST['submitters']);
             }
-            echo $res;
+            return $res;
         }
         elseif( $reqType == 'DELETE' )
         {
@@ -704,13 +704,13 @@ class EpiCollectWebApp
                 else
                 {
                     EpiCollectWebApp::Fail();
-                    echo ' {"success" : false, "message" : "Could not delete project" }';
+                    return ' {"success" : false, "message" : "Could not delete project" }';
                 }
             }
             else
             {
                 EpiCollectWebApp::Denied(" delete this project");
-                echo ' {"success" : false, "message" : "You do not have permission to delete this project" }';
+                return ' {"success" : false, "message" : "You do not have permission to delete this project" }';
             }
 
         }
@@ -723,7 +723,7 @@ class EpiCollectWebApp
             if( $format == 'xml' )
             {
                 EpiCollectWebApp::ContentType('xml');
-                echo $prj->toXML($this->base_url);
+                return $prj->toXML($this->base_url);
             }else {
                 EpiCollectWebApp::ContentType('html');
 
@@ -779,6 +779,614 @@ class EpiCollectWebApp
             }
         }
     }
+    
+    function formHandler()
+    {
+        $url = $this->get_request_url();
+	$format = substr($url, strrpos($url, ".") + 1);
+	
+	$prj = new EcProject();
+	$pNameEnd = strpos($url, "/");
+
+	$prj->name = substr($url, 0, $pNameEnd);
+	$prj->fetch($this->db);
+	
+	if(!$prj->id)
+	{
+            return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "404 ", "error" => "The project {$prj->name} does not exist on this server"));
+	}
+	
+	$permissionLevel = 0;
+	$loggedIn = $this->auth->isLoggedIn();
+	
+	if($loggedIn) $permissionLevel = $prj->checkPermission($this->db, $this->auth, $this->auth->getEcUserId());
+
+	if(!$prj->isPublic && !$loggedIn)
+	{
+            return $this->loginHandler($url);
+	}
+	else if(!$prj->isPublic &&  $permissionLevel < 2)
+	{
+            return applyTemplate("./base.html", "./error.html", array("errorType" => "403 ", "error" => "You do not have permission to view this project"));
+	}
+
+	$extStart = strpos($url, ".");
+	$frmName = rtrim(substr($url, $pNameEnd + 1, ($extStart > 0 ?  $extStart : strlen($url)) - $pNameEnd - 1), "/");
+
+	if(!array_key_exists($frmName, $prj->tables))
+	{
+		return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "404 ", "error" => "The project {$prj->name} does not contain the form $frmName"));
+		
+	}
+	
+	if($_SERVER["REQUEST_METHOD"] == 'POST')
+	{		
+		$this->logger->write("debug", json_encode($_POST));
+		EpiCollectWebApp::DoNotCache();
+		
+		
+		$_f = EpiCollectUtils::array_get_if_exists($_FILES, "upload");
+		
+		if( $_f )
+		{
+			if($_f['tmp_name'] == '')
+			{
+				EpiCollectWebApp::flash('The file is too big to upload', 'err');
+			}
+			else
+			{
+				try{
+					ini_set('max_execution_time', 200);
+					if( preg_match("/\.csv$/", $_f["name"]) )
+					{
+						$fh = fopen($_f["tmp_name"], 'r');
+						
+						$res = $prj->tables[$frmName]->parseEntriesCSV($this->db, $fh);
+						
+						fclose($fh);
+						unset ($fh);
+					}
+					elseif( preg_match("/\.xml$/", $_f["name"]) )
+					{
+						$res = $prj->tables[$frmName]->parseEntries(simplexml_load_string(file_get_contents($_f["tmp_name"])));
+					}
+					//echo "{\"success\":" . ($res === true ? "true": "false") .  ", \"msg\":\"" . ($res==="true" ? "success" : $res) . "\"}";
+					flash ("Upload Complete");
+				}catch(Exception $ex)
+				{
+					EpiCollectWebApp::flash($ex->getMessage(), 'err');
+				}
+			}
+		}
+		else
+		{
+			$ent = $prj->tables[$frmName]->createEntry();
+				
+			$ent->created = $_POST["created"];
+			$ent->deviceId = $_POST["DeviceID"];
+			$ent->uploaded = EpiCollectUtils::getTimestamp('Y-m-d H:i:s');
+			$ent->user = 0;
+			
+			foreach( array_keys($ent->values) as $key )
+			{
+				if(!$prj->tables[$frmName]->fields[$key]->active) continue;
+				if(array_key_exists($key, $_POST))
+				{
+					$ent->values[$key] = $_POST[$key];
+				}
+				elseif (!$prj->tables[$frmName]->fields[$key]->required && !$prj->tables[$frmName]->fields[$key]->key)
+				{
+					$ent->values[$key] = "";
+				}
+				else
+				{
+                                    EpiCollectWebApp::BadRequest();
+					echo "{\"success\":false, \"msg\":\"$key is a required field\"}";
+					return;
+				}
+			}
+			
+			try
+			{
+				$res = $ent->post();
+				echo "{\"success\":" . ($res === true ? "true": "false") .  ", \"msg\":\"" . ($res==="true" ? "success" : $res) . "\"}";
+				return;
+			}
+			catch(Exception $e)
+			{
+                            EpiCollectWebApp::BadRequest('CONFLICT');
+				echo $e->getMessage();
+			}
+		}
+	}
+	elseif($_SERVER["REQUEST_METHOD"] == "DELETE")
+	{
+		echo "delete form";
+		return;
+	}
+	else
+	{
+		ini_set('max_execution_time', 200);
+		
+		$offset = array_key_exists('start', $_GET) ? $_GET['start'] : 0;
+		$limit = array_key_exists('limit', $_GET) ? $_GET['limit'] : 0;
+		
+		EpiCollectWebApp::DoNotCache();
+		switch($format){
+			case 'json':
+                            $describe = EpiCollectUtils::array_get_if_exists($_GET, 'describe');
+                            
+                            EpiCollectWebApp::ContentType('json');
+                            if($describe === 'true')
+                            {
+                                return $prj->tables[$frmName]->toJson();
+                            }
+                            else
+                            {
+				$res = $prj->tables[$frmName]->ask($this->db, $_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object");
+				if($res !== true) die($res);
+						
+				$i = 0;			
+				$recordSet = array();
+				
+				while($rec = $prj->tables[$frmName]->recieve($this->db, 1, true, $this->base_url))
+				{
+					$recordSet = array_merge($recordSet, $rec); 
+				}
+				
+				return json_encode($recordSet);
+                            }
+				
+			case "xml":
+				EpiCollectWebApp::ContentType('xml');
+				if(array_key_exists("mode", $_GET) && $_GET["mode"] == "list")
+				{
+					echo "<entries>";
+					$res = $prj->tables[$frmName]->ask($this->db, $_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "xml");
+					if($res !== true) die($res);
+					while($ent = $prj->tables[$frmName]->recieve($this->db, 1, true))
+					{
+						echo $ent;
+					}
+					echo "</entries>";
+					return;
+				}
+				else
+				{
+					echo $prj->tables[$frmName]->toXml();
+					return;
+				}
+			case "kml":
+				EpiCollectWebApp::ContentType('kml');
+				
+				echo '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://earth.google.com/kml/2.0"><Document><name>EpiCollect</name><Folder><name>';
+				echo "{$prj->name} - {$frmName}";
+				echo '</name><visibility>1</visibility>';
+					
+				$arr = $prj->tables[$frmName]->ask($this->db,false, $offset, $limit);
+					
+				while($ent = $prj->tables[$frmName]->recieve($this->db, 1, true))
+				{
+					echo "<Placemark>";
+					$desc = "";
+					$title = "";
+					foreach($prj->tables[$frmName]->fields as $name => $fld)
+					{
+						if(!$fld->active)continue;
+						if($fld->type == "location" || $fld->type == "gps")
+						{
+							$loc = json_decode($ent[0][$name]);
+							echo "<Point><coordinates>{$loc->longitude},{$loc->latitude}</coordinates></Point>";
+						}
+						elseif($fld->title)
+						{
+							$title = ($title == "" ? $ent[0][$name] : "$title\t{$ent[0][$name]}");
+						}
+						else
+						{
+							$desc = "$name : {$ent[0][$name]}";
+						}
+					}
+					if($title == "") $title = $arr[$prj->tables[$frmName]->key];
+
+					echo "<name>$title</name>";
+					echo "<description><![CDATA[$desc]]></description>";
+					echo "</Placemark>";
+				}
+				echo '</Folder></Document></kml>';
+					
+					
+				return;
+
+			case "csv":
+				EpiCollectWebApp::ContentType('csv');
+				//
+				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
+				$filename = sprintf('ec/uploads/%s_%s_%s%s.csv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
+				if(!file_exists($filename))
+                                {
+					$fp = fopen($filename, 'w+');
+					
+					
+					
+					$headers = array_merge(array('DeviceID','created','lastEdited','uploaded'), array_keys($prj->tables[$frmName]->fields));
+					$_off = 4;
+										
+					$num_h = count($headers) - $_off;
+					
+					$nxt = $prj->getNextTable($frmName, true);
+					if($nxt) array_push($headers, sprintf('%s_entries', $nxt->name));
+					
+					$real_flds = $headers;
+					for( $i = 0; $i < $num_h; $i++ )
+					{
+						$fld = $prj->tables[$frmName]->fields[$headers[$i + $_off]];
+						if(!$fld->active)
+						{
+							array_splice($headers, $i + $_off, 1);
+						}
+						elseif($fld->type == "gps" || $fld->type == "location")
+						{
+							$name = $fld->name;
+							
+							//take the GPS fields table, apply each one as a suffix to the field name and then splice 
+							
+							$gps_flds = array_values(EcTable::$GPS_FIELDS);
+							foreach($gps_flds	 as &$val)
+							{
+								$val = sprintf('%s%s', $name, $val);
+							}
+							array_splice($headers, $i + $_off, 1, $gps_flds);
+							$i = $i + 5;
+						}
+					}
+					
+					fwrite($fp, sprintf("\"%s\"\n", implode('","', $headers)));
+					$res = $prj->tables[$frmName]->ask($this->db,$_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object", true);
+					if($res !== true) die($res);
+					
+					$count_h = count($real_flds);
+					
+					while($xml = $prj->tables[$frmName]->recieve($this->db, 1, true))
+					{
+						$xml = $xml[0];
+//						fwrite($fp, sprintf('"%s"
+//', $xml));	
+						///print_r($xml); 
+						for( $i = 0; $i < $count_h; $i++ )
+						{
+							
+							if( $i > 0 ) fwrite($fp, ',');
+							fwrite($fp, '"');
+							
+							if (array_key_exists($real_flds[$i], $xml))
+							{
+								if($i > $_off && ($i != $count_h - 1) && ($prj->tables[$frmName]->fields[$real_flds[$i]]->type == "gps" || $prj->tables[$frmName]->fields[$real_flds[$i]]->type == "location"))
+								{
+									try{
+										
+										$arr = $xml[$real_flds[$i]];
+										if(is_string($arr) && trim($xml[$real_flds[$i]]) != '' ){
+											$escval = str_replace(': N/A' ,': "N/A"', $xml[$real_flds[$i]]);
+											$arr = json_decode($escval, true);	
+										}
+										
+										if(is_array($arr))
+										{
+											$x = 0;
+											foreach(array_keys(EcTable::$GPS_FIELDS) as $k)
+											{
+												if($x > 0) fwrite($fp, '","');
+												
+												if(array_key_exists($k, $arr))
+												{
+													fwrite($fp, $arr[$k]);
+												}
+												
+												$x++;
+											}
+										}
+										else
+										{
+											for($fieldsIn = 0; $fieldsIn < 6; $fieldsIn++)
+											{
+												fwrite($fp, '","');
+											}
+										}
+									}catch(Exception $e)
+									{
+										throw $e;
+									}	
+								
+								}
+								else
+								{
+									fwrite($fp, $xml[$real_flds[$i]]);
+								}
+							}
+							fwrite($fp, '"');
+						}
+						
+						fwrite($fp, "\r\n");
+					}
+				}
+				
+				EpiCollectWebApp::Redirect(sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
+				
+				return;
+			
+			case "tsv":
+                            
+				//
+				if( !file_exists('ec/uploads')) mkdir('ec/uploads');
+				$filename = sprintf('ec/uploads/%s_%s_%s%s.tsv', $prj->name, $frmName, $prj->getLastUpdated(), md5(http_build_query($_GET)));
+				
+				if(!file_exists($filename))
+				{
+					//ob_implicit_flush(false);
+					$fp = fopen($filename, 'w+');
+					//$arr = $prj->tables[$frmName]->get(false, $offset, $limit);
+					//$arr = $arr[$frmName];
+					//echo assocToDelimStr($arr, ",");
+					$headers = array_merge(array('DeviceID','created','lastEdited','uploaded'), array_keys($prj->tables[$frmName]->fields));
+					$_off = 4;
+										
+					$num_h = count($headers) - $_off;
+					
+					$nxt = $prj->getNextTable($frmName, true);
+					if($nxt) array_push($headers, sprintf('%s_entries', $nxt->name));
+					
+					$real_flds = $headers;
+					for( $i = 0; $i < $num_h; $i++ )
+					{
+						$fld = $prj->tables[$frmName]->fields[$headers[$i + $_off]];
+						if(!$fld->active)
+						{
+							array_splice($headers, $i + $_off, 1);
+						}
+						elseif($fld->type == "gps" || $fld->type == "location")
+						{
+							$name = $fld->name;
+							
+							//take the GPS fields table, apply each one as a suffix to the field name and then splice 
+							
+							$gps_flds = array_values(EcTable::$GPS_FIELDS);
+							foreach($gps_flds	 as &$val)
+							{
+								$val = sprintf('%s_%s', $name, $val);
+							}
+							array_splice($headers, $i + $_off, 1, $gps_flds);
+							$i = $i + 5;
+						}
+					}
+					
+					fwrite($fp, sprintf("\"%s\"\n", implode("\"\t\"", $headers)));
+					$res = $prj->tables[$frmName]->ask($this->db,$_GET, $offset, $limit, EpiCollectUtils::array_get_if_exists($_GET,"sort"), EpiCollectUtils::array_get_if_exists($_GET,"dir"), false, "object", true);
+					if($res !== true) die($res);
+					
+					$count_h = count($real_flds);
+					
+					while($xml = $prj->tables[$frmName]->recieve($this->db, 1, true))
+					{
+						$xml = $xml[0];
+//						fwrite($fp, sprintf('"%s"
+//', $xml));	
+						///print_r($xml); 
+						for( $i = 0; $i < $count_h; $i++ )
+						{
+							
+							if( $i > 0 ) fwrite($fp, ',');
+							fwrite($fp, '"');
+							
+							if (array_key_exists($real_flds[$i], $xml))
+							{
+								if($i > $_off && ($i != $count_h - 1) && ($prj->tables[$frmName]->fields[$real_flds[$i]]->type == "gps" || $prj->tables[$frmName]->fields[$real_flds[$i]]->type == "location"))
+								{
+									try{
+										
+										$arr = $xml[$real_flds[$i]];
+										if(is_string($arr) && trim($xml[$real_flds[$i]]) != '' ){
+											$escval = str_replace(': N/A' ,': "N/A"', $xml[$real_flds[$i]]);
+											$arr = json_decode($escval, true);	
+										}
+										
+										if(is_array($arr))
+										{
+											$x = 0;
+											foreach(array_keys(EcTable::$GPS_FIELDS) as $k)
+											{
+												if($x > 0) fwrite($fp, "\"\t\"");
+												
+												if(array_key_exists($k, $arr))
+												{
+													fwrite($fp, $arr[$k]);
+												}
+												
+												$x++;
+											}
+										}
+										else
+										{
+											for($fieldsIn = 0; $fieldsIn < 6; $fieldsIn++)
+											{
+												fwrite($fp, "\"t\"");
+											}
+										}
+									}catch(Exception $e)
+									{
+										throw $e;
+									}	
+								
+								}
+								else
+								{
+									fwrite($fp, $xml[$real_flds[$i]]);
+								}
+							}
+							fwrite($fp, '"');
+						}
+						
+						fwrite($fp, "\r\n");
+					}
+				}
+			
+				EpiCollectWebApp::ContentType('tsv');
+				EpiCollectWebApp::Redirect(sprintf('http://%s%s/%s', $_SERVER['HTTP_HOST'], $SITE_ROOT, $filename));
+			default:
+				break;
+		}
+	}
+	
+	EpiCollectWebApp::DoNotCache();
+	
+	$referer = array_key_exists("HTTP_REFERER", $_SERVER) ? $_SERVER["HTTP_REFERER"] : "";
+	if(!array_key_exists("formCrumbs", $_SESSION) || !$prj->getPreviousTable($frmName) || !preg_match("/{$prj->name}\//", $referer))
+	{
+		$_SESSION["formCrumbs"] = array();
+	}
+	$p = "";
+	if(array_key_exists("prevForm", $_GET))
+	{
+	
+		$pKey = $prj->tables[$_GET["prevForm"]]->key;
+		$_SESSION["formCrumbs"][$_GET["prevForm"]] =  $_GET[$pKey];
+		//if we've come back up a step we need to remove the entry. We assume that the crumbs are in the correct order to
+		//draw them in the correct order
+	}
+
+	$pk = null;
+	$pv = null;
+	foreach($_SESSION["formCrumbs"] as $k => $v)
+	{
+		if($prj->tables[$k]->number >= $prj->tables[$frmName]->number)
+		{
+			unset($_SESSION["formCrumbs"][$k]);
+		}
+		else
+		{
+			if($pk)
+			{
+				$p .= "&gt; <a href=\"{$k}?{$prj->tables[$pk]->key}=$pv\">{$k} : $v </a>";
+			}
+			else
+			{
+				$p .= "&gt; <a href=\"{$k}\">{$k} : $v </a>";
+			}
+			
+			$pk = $k;
+			$pv = $v;
+		}
+	}
+	
+	
+		
+	$mapScript = $prj->tables[$frmName]->hasGps() ? "<script type=\"text/javascript\" src=\"" . (EpiCollectUtils::array_get_if_exists($_SERVER, 'HTTPS') ? 'https' : 'http') . "://maps.google.com/maps/api/js?sensor=false\"></script>
+	<script type=\"text/javascript\" src=\"{$this->site_root}/js/markerclusterer.js\"></script>" : "";
+	$vars = array(
+			"prevForm" => $p,
+			"projectName" => $prj->name,
+			"formName" => $frmName, 
+			"curate" =>  $permissionLevel > 1 ? "true" : "false", 
+			"mapScript" => $mapScript,
+			"curationbuttons" => $permissionLevel > 1 ? sprintf('<span class="btn-group"><a href="javascript:project.forms[formName].displayForm({ vertical : false });" class="btn"><span class="icon-asterisk"></span></a>
+				<a class="btn" href="javascript:editSelected();"><span class="icon-pencil"></span></a>
+				<a class="btn" href="javascript:project.forms[formName].deleteEntry(window.ecplus_entries[$(\'.ecplus-data tbody tr.selected\').index()][project.forms[formName].key]);"><span class="icon-trash"></span></a></span>',
+				$this->site_root, $this->site_root, $this->site_root): '',
+			"csvform" => $permissionLevel > 1 ?$csvform = '<div id="csvform" class="row">
+                          
+                                    <a class="btn btn-primary span10" data-toggle="collapse" data-target="#collapseOne">Upload data from a CSV file</a>
+                          
+				<div id="collapseOne" class="accordion-body collapse span10">
+					<form method="POST" enctype="multipart/form-data" >
+						<label for="upload">File to upload : </label><input type="file" name="upload" /><br />
+						<input type="submit" name="submit" value="Upload File" />
+					</form>
+				</div>
+                            </div>
+                          ' : '' );
+	return $this->applyTemplate('project_base.html', './FormHome.html', $vars);
+    }
+    
+    function getImage()
+    {
+	$url = $this->get_request_url();
+        
+        
+	$prj = new EcProject();
+	$pNameEnd = strpos($url, "/");
+	
+	$prj->name = substr($url, 0, $pNameEnd);
+	$prj->fetch($this->db);
+	
+	if(!$prj->id)
+	{
+		return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "404 ", "error" => "The project {$prj->name} does not exist on this server"));
+		
+	}
+	
+	
+	$permissionLevel = 0;
+	$loggedIn = $this->auth->isLoggedIn($this->db);
+	
+	if($loggedIn) $permissionLevel = $prj->checkPermission($this->db, $this->auth, $this->auth->getEcUserId());
+	
+	if(!$prj->isPublic && !$loggedIn)
+	{
+		return loginHandler($url);
+		
+	}
+	else if(!$prj->isPublic &&  $permissionLevel < 2)
+	{
+		return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "403 ", "error" => "You do not have permission to view this project"));
+		
+	}
+	
+	$extStart = strrpos($url, '/');
+	$frmName = rtrim(substr($url, $pNameEnd + 1, ($extStart > 0 ?  $extStart : strlen($url)) - $pNameEnd - 1), "/");
+	
+	$picName = EpiCollectUtils::array_get_if_exists($_GET, 'img');
+	
+	EpiCollectWebApp::ContentType('jpeg');
+	
+	if($picName)
+	{
+		$tn = sprintf('./ec/uploads/%s~tn~%s', $prj->name, $picName);
+		$full = sprintf('./ec/uploads/%s~%s', $prj->name, $picName);
+		
+		$thumbnail = EpiCollectUtils::array_get_if_exists($_GET, 'thumbnail') === 'true';
+		
+		$raw_not_tn = str_replace('~tn~', '~', $picName);
+		
+		if(!$thumbnail && file_exists($full))
+		{
+			//try with project prefix
+			echo file_get_contents($full);
+		}
+		elseif(file_exists($tn))
+		{
+			//try with project and thumbnail prefix
+			echo file_get_contents($tn);
+		}
+		elseif(!$thumbnail && file_exists(sprintf('./ec/uploads/%s', $raw_not_tn)))
+		{
+			//try with raw non thumbnail filename
+			echo file_get_contents(sprintf('./ec/uploads/%s', $raw_not_tn));
+		}
+		elseif(file_exists(sprintf('./ec/uploads/%s', $picName)))
+		{
+			//try with raw filename
+			echo file_get_contents(sprintf('./ec/uploads/%s', $picName));
+		}
+		else
+		{
+			echo file_get_contents('./images/no_image.png');
+		}
+	}
+	else
+	{
+		echo file_get_contents('./images/no_image.png');
+	}
+}
     
     function getClusterMarker()
     {
@@ -974,6 +1582,7 @@ class EpiCollectWebApp
                 'png' => 'image/png',
                 'gif' => 'image/gif',
                 'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
                 'css' => 'text/css',
                 'html' => 'text/html',
                 'js' => 'text/javascript',

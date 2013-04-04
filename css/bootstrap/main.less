@@ -176,3 +176,33 @@ msg
     
 }		
 
+table
+{
+    .table;
+    .table-bordered;
+    .table-striped;
+    .table-hover;
+
+    width: auto;
+    max-width: none;
+
+    thead th
+    {
+        vertical-align : top;
+    }
+    
+    td
+    {
+        background-color : transparent;
+    }
+
+    tbody tr:hover
+    {
+        background-color : @infoBackground;
+    }
+
+    tr.selected
+    {
+        background-color : @infoBackground;
+    }
+}

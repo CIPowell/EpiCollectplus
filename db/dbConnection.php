@@ -64,7 +64,7 @@
 		
 		public function boolVal($val) {return $val && $val !== "false" ? "1" : "0";}
 		public function boolVal2($val) {return $val === false || $val === "false" || $val == 0 ? "0" : "1";}
-		public function stringVal($val) {return $val == "" ? "NULL" : "'". trim($this->con->quote($val), '\'') . "'";}
+		public function stringVal($val) {return $val == "" ? "NULL" : "'". trim($this->con->quote($val), "\'") . "'";}
 		public function numVal($val) {return !$val && $val !== 0 && $val !== 0.0 ? "NULL" : "$val";}
 		public function unescape($val) {return $this->con->quote($val); }
 		
@@ -201,7 +201,7 @@
 		
 		public function get_row_array()
 		{
-			return $this->resSet->fetch();
+			return $this->resSet->fetch(PDO::FETCH_ASSOC);
 		}
 		
 		public function get_row_object()
