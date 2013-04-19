@@ -3,18 +3,21 @@
         <script id="table-header-template" type="text/template">
             <th columnName="<%= name %>" class="<%= name %>"><span class="pull-right"></span><%= label %></th>
         </script>
+        <script id="column-filter-option-template" type="text/template">
+            <option value="<%= name %>" <% if(key){ %> SELECTED <% } %>><%= label %></option>
+        </script>
         <script id="show-hide-column-template" type="text/template">
-            <li><label class="checkbox"><input type="checkbox" class="show-hide-check-box" name="<%= name %>" id="shcb_<%= name %>" checked="checked" /><%= label %></label></li>
+            <li><label class="checkbox"><input type="checkbox" class="show-hide-check-box" name="<%= name %>" id="shcb_<%= name %>" <% if(display) { %> checked="checked" <%}%> /><%= label %></label></li>
         </script>
         <script id="table-row-template" type="text/template">
-            <tr>
+            <tr id="<%= record.get(form.get('key')) %>">
                 <% _.each(form.get('fields'), function(fld){ 
                     if(fld.type === 'location' || fld.type === 'gps')
                     {
                 %>
                     <td class="<%= fld.name %>"><%= record.get(fld.name).latitude %>, <%= record.get(fld.name).longitude %></td>
                 <% } else if(fld.type === 'photo') { %>    
-                     <td class="<%= fld.name %>"><a href="<%= record.get(fld.name) %>" target="__blank"><img src="<%= record.get(fld.name) %>" /></a></td>
+                     <td class="<%= fld.name %>"><a href="<%= record.get(fld.name) %>" target="__blank"><img src="<%= record.get(fld.name) %>&thumbnail=true" width="64"/></a></td>
                 <% } else { %> 
                     <td class="<%= fld.name %>"><%= record.get(fld.name) %></td>
                 <% }
@@ -37,15 +40,15 @@
             </ul>
             <div class="tab-content">
                 <div id="tableTab" class="tab-pane active">
-                    <div class="row">
+                    <div class="row-fluid">
                         <form class="form-inline span12" >
                             {#curationbuttons#}
                             
                                 <label>Filter List By </label> <select id="filter_fields" class="fieldList span2"></select> 
                                 <div id="filterControls" class="input-append">
-                                    <input id="filter_value" type="text" class="span2" /> 
-                                    <button class="btn" type="button">Search</button>
-                                    <button class="btn" type="button">Clear</button>
+                                    <input id="filter_value" type="text" class="" autocomplete="off" /> 
+                                    <button id="btn_filter" class="btn" type="button">Search</button>
+                                    <button id="btn_clear" class="btn" type="button">Clear</button>
                                 </div><!--  <img src="{#SITE_ROOT#}/images/glyphicons/glyphicons_027_search.png" title="Clear Filter" alt="Clear Filter">-->
                          
                            
@@ -74,73 +77,72 @@
                           
                            </form>
                     </div>
-                    <table id="data-table" class="table-hover">
-                    </table>
-                    <div class="ecplus-table-footer">
-                            <span class="left">
+                    <div class="row-fluid">
+                        <div id="table-container" class="span12">
+                            <table id="data-table"></table>
+                        </div>
+                    </div>
+                    <div class="ecplus-table-footer row-fluid">
+                            <span class="pull-left span6">
                                 <span id="forwardButtons" class="btn-group">
-                                    <a class="btn" href="javascript:firstPage();" title="Go to first page">
+                                    <a class="btn first-page" title="Go to first page">
                                         <span class="icon-fast-backward"></span>
                                     </a> 
-                                    <a class="btn" href="javascript:turnBackPage();" title="Go to previous page">
+                                    <a class="btn prev-page" title="Go to previous page">
                                         <span class="icon-step-backward"></span>
                                     </a>
                                 </span>
                                     <span id="start"></span> to <span id="end"></span> of <span id="total"></span>
                                     <span id="backwardButtons" class="btn-group">
-                                        <a class="btn" href="javascript:getData();"  title="Refresh entries">
+                                        <a class="btn refresh" title="Refresh entries">
                                             <span class="icon-refresh"></span>
                                         </a>
 
-                                        <a class="btn" href="javascript:turnPage();"  title="Go to next page">
+                                        <a class="btn next-page" title="Go to next page">
                                             <span class="icon-step-forward"></span>
                                         </a>
-                                        <a class="btn" href="javascript:lastPage();"   title="Go to final page">
+                                        <a class="btn last-page" title="Go to final page">
                                             <span class="icon-fast-forward"></span>
                                         </a>
                                 </span>
                             </span>
-                            <span class="right">
-                                    Show <input type="number" maxlength="3" id="num_entries" /> entries per page <a class="btn" href="javascript:saveNumEntires();">Save as my default</a> 
+                            <span class="pull-right span6">
+                                    Show <input type="number" maxlength="3" id="num_entries" class="span1" /> entries per page <a class="btn" href="javascript:saveNumEntires();">Save as my default</a> 
                             </span>
                     </div>
                     {#csvform#}
             </div>
             <div id="mapTab" class="tab-pane">
-                    <div id="progressbar"><div class="progress-label">Getting Total no of Entries...</div></div>
-                    <div id="map-container">
-                            <div id="graphOne" class="graphPanel minimised"></div>
-                            <div id="sidebar">
+                    <div id="map-container" class="row-fluid">
+                           
+                        <div id="sidebar" class="span3">
 
-                            </div>
-                            <div id="map"></div>
-                            <!--  <div id="graphbar"> -->
-
-                                    <!-- <div id="graphTwo" class="graphPanel"></div>
-                                    <div id="graphThree" class="graphPanel"></div>-->
-                            <!--</div>-->
+                        </div>
+                        <div id="map" class="span6"></div>
+                        <div id="graphOne" class="graphPanel minimised span3"></div>
+                           
 
                     </div>
-                    <div id="bottombar">
-                            <div id="timeFilter" class ="filterControl">
-                                    <h4>Filter By Time</h4>
-                                    <div id="slider-range" ></div>
-                                    <p><b>From :</b><span id="timeFrom"></span></p>
-                                    <p><b>To :</b><span id="timeTo"></span></p>
-                                    <a  class="clearFilter" href="javascript:clearMapFilter();">Clear Filter</a>
-                            </div>
-                            <div id="fieldFilter" class ="filterControl">
-                                    <h4>Filter By Field</h4>
-                                    <p><b>Field </b><select id="mapFilterField" class="fieldList"></select></p>
-                                    <p><b>Value </b><input id="mapFilterValue"></input></p>
-                                    <p><a href="javascript:doMapFieldFilter()">Apply Filter</a></p>
-                                    <a class="clearFilter" href="javascript:clearMapFilter();">Clear Filter</a>
-                            </div>
-                            <div id="fieldColour" class ="colourControl">
-                                    <h4>Colour By Field</h4>
-                                    <p><b>Field </b><select id="mapColourField" class="colourFieldList"></select></p>
-                                    <p><a href="javascript:colourMarkersBy($('#mapColourField').val())">Apply Colouring</a></p>
-                            </div>
+                    <div id="bottombar" class="row-fluid">
+                        <div id="timeFilter" class ="filterControl span4">
+                                <h4>Filter By Time</h4>
+                                <div id="slider-range" ></div>
+                                <p><b>From :</b><span id="timeFrom"></span></p>
+                                <p><b>To :</b><span id="timeTo"></span></p>
+                                <a  class="clearFilter" href="javascript:clearMapFilter();">Clear Filter</a>
+                        </div>
+                        <div id="fieldFilter" class ="filterControl span4">
+                                <h4>Filter By Field</h4>
+                                <p><b>Field </b><select id="mapFilterField" class="fieldList"></select></p>
+                                <p><b>Value </b><input id="mapFilterValue"></input></p>
+                                <p><a href="javascript:doMapFieldFilter()">Apply Filter</a></p>
+                                <a class="clearFilter" href="javascript:clearMapFilter();">Clear Filter</a>
+                        </div>
+                        <div id="fieldColour" class ="colourControl span4">
+                                <h4>Colour By Field</h4>
+                                <p><b>Field </b><select id="mapColourField" class="colourFieldList"></select></p>
+                                <p><a href="javascript:colourMarkersBy($('#mapColourField').val())">Apply Colouring</a></p>
+                        </div>
                     </div>
             </div>		
         </div>

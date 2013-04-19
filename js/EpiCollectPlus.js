@@ -164,47 +164,47 @@ define(function(){
                     $("#ecplus_loader").css({"width"  : size + "px", "height" : size + "px", "position" : "fixed", "top" : "50%", "left" : "50%", "margin-left" : "-" + (size/2) + "px", "margin-top" : "-" + (size/2) + "px", "border-radius" :"20px"});
                     $("#ecplus_loader_bg").show();
                     try{
-                            ctx = $("#ecplus_loader")[0].getContext('2d');
-                            drawer = setInterval(this.draw, 10);
+                        ctx = $("#ecplus_loader")[0].getContext('2d');
+                        drawer = setInterval(this.draw, 10);
                     }catch(err){}
             };
 
             this.draw = function()
             {
-                    if(!ctx) return;
+                if(!ctx) return;
 
-                    var d = size;
-                    var halfd = d/2;
-                    ctx.clearRect(-halfd, -halfd, d, d);
-                    ctx.save();
-                    ctx.beginPath();
+                var d = size;
+                var halfd = d/2;
+                ctx.clearRect(-halfd, -halfd, d, d);
+                ctx.save();
+                ctx.beginPath();
 
-                    var ts = ctx.measureText(message).width;
-                    ctx.fillText(message, -ts/2, 0);
-                    ctx.rotate(step * (++i % 300));
+                var ts = ctx.measureText(message).width;
+                ctx.fillText(message, -ts/2, 0);
+                ctx.rotate(step * (++i % 300));
 
-                    ctx.lineWidth = 5;
+                ctx.lineWidth = 5;
 
-                    var tts = ts * 0.8;
-                    ctx.arc(0, 0, tts, 0, Math.PI * 0.5);
-                    ctx.stroke();
+                var tts = ts * 0.8;
+                ctx.arc(0, 0, tts, 0, Math.PI * 0.5);
+                ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.arc(0, 0, tts, Math.PI, Math.PI * 1.5);
-                    ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(0, 0, tts, Math.PI, Math.PI * 1.5);
+                ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.strokeStyle = "rgba(255,255,255,1)";
-                    ctx.lineWidth = 10;
-                    ctx.arc(0, -10, tts, 0, Math.PI * 0.5);
-                    ctx.stroke();
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(255,255,255,1)";
+                ctx.lineWidth = 10;
+                ctx.arc(0, -10, tts, 0, Math.PI * 0.5);
+                ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.lineWidth = 10;
-                    ctx.arc(0, 10, tts, Math.PI, Math.PI * 1.5);
-                    ctx.stroke();
+                ctx.beginPath();
+                ctx.lineWidth = 10;
+                ctx.arc(0, 10, tts, Math.PI, Math.PI * 1.5);
+                ctx.stroke();
 
-                    ctx.restore();
+                ctx.restore();
             };
 
             this.stop = function()

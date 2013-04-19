@@ -13,46 +13,38 @@
 		<title>EpiCollect+</title>
 	</head>
 	<body>
-            <header class="container">
-                <div class="row">
-                    <div id="logo" class="span4">
-                            <a href="{#SITE_ROOT#}/"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /></a><span class="beta-tag">Beta</span>
-                    </div>  
-
-                    <section id="login-status" class="span8">	
-                        {#loggedIn#}
-                    </section>
+            <header class="navbar navbar-fixed-top">
+                <div class="navbar-inner">
+                   <nav>
+                       <div class="row-fluid">
+                            <a href="{#SITE_ROOT#}/" class="brand span3"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /><span class="beta-tag">Beta</span></a>
+                            <ul class="nav span5">
+                                <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
+                                <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
+                                <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
+                            </ul>
+                            <span id="login-status" class="span4 row">	
+                                {#loggedIn#}
+                            </span>
+                       </div>
+                    </nav>
                 </div>
+           </header> 
+                    
+       
 		<!--<div id="breadcrumbs"><a href="{#SITE_ROOT#}/">Home</a>{#breadcrumbs#}</div>-->
-            </header>
-          
-            
-            
-		<section id="main" class="container">
-                      <div class="navbar navbar-fixed">
-                        <div class="navbar-inner">
-                                <ul class="nav">
 
-                                    <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
-                                    <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
-
-                                    <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
-
-                                </ul>
-
-                        </div>
-                    </div> 
+		<section id="main">
 			{#main#}
 		</section>
-		<footer class="container"> 
+		<footer> 
                     <div class="row">
 			<span class="span6">Version {#codeVersion#} - EpiCollect+ is developed at <a href="http://www.imperial.ac.uk" target="_blank">Imperial College London</a> | <a href="mailto:d.aanensen@imperial.ac.uk">Contact us </a></span>
 			<span class="span6 right"><a href="http://github.com/ImperialCollectLondon/EpiCollectPlus"  target="__blank"> <span class="icon-folder-open" ></span> Github</a>
                              <a href="http://www.twitter.com/epicollect" target="__blank"> <span class="icon-comment"> </span> Twitter</a></span>
                     </div>
 		</footer>
-		<script type="text/javascript">
-
+                <script type="text/javascript">
 			  var _gaq = _gaq || [];
 			  _gaq.push(['_setAccount', '{#GA_ACCOUNT#}']);
 			  _gaq.push(['_trackPageview']);

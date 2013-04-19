@@ -70,19 +70,20 @@
                 
 		public function fromArray($arr)
 		{
-			foreach(array_keys($arr) as $key)
-			{
-				if($key == "isMain")
-				{
-					$this->$key = $arr[$key] == 1 ? "true" : "false";	 
-				}
-				else
-				{
-					$this->$key = $arr[$key];
-				}
-			}
-			$this->number = $this->table_num;
-			$this->id = $this->idForm;
+                    foreach(array_keys($arr) as $key)
+                    {
+                        if($key == "isMain")
+                        {
+                            $this->$key = $arr[$key] == 1 ? "true" : "false";	 
+                        }
+                        else
+                        {
+                            $this->$key = $arr[$key];
+                        }
+                    }
+                    $this->number = intval($this->table_num);
+                    $this->id = $this->idForm;
+                    
 		}
 		
 		public function getBranchForms()
@@ -107,22 +108,30 @@
 			return $xml;
 		}
 		
-		public function toJson()
+		public function toJSON()
 		{
-			$xml = "\n\t{
-				\"num\" : {$this->number},
-				\"name\" : \"{$this->name}\",
-				\"key\" : \"{$this->key}\",
-				\"fields\": [";
-				$i =0;
-			foreach($this->fields as $fld)
-			{
-				$xml .= ($i > 0 ? "," : "") . $fld->toJson();
-				++$i;
-			}
-			$xml .= "]\n\t}";
-			return $xml;
+			return json_encode($this->asArray());
 		}
+                
+                public function asArray()
+                {
+                    $table = array(
+                        'num' => intval($this->number),
+                        'name' => $this->name,
+                        'key' => $this->key,
+                        'fields' => array(),
+                        'main' => $this->isMain
+                    );
+                    
+                    
+                    
+                    foreach($this->fields as $name => $field)
+                    {
+                        array_push($table['fields'], $field->asArray());
+                    }
+                    
+                    return $table;
+                }
 		
 		public function createEntry()
 		{
@@ -141,37 +150,37 @@
 			$qry = "SELECT * from form WHERE";
 			if(is_numeric($this->id))
 			{
-				$qry = "$qry idForm = {$this->id}";
+                            $qry = "$qry idForm = {$this->id}";
 			}
 			else
 			{
-				$qry = "$qry projectName = '{$this->survey->name}' AND name = '{$this->name}'";
+                            $qry = "$qry projectName = '{$this->survey->name}' AND name = '{$this->name}'";
 			}
 			
 			$res = $db->do_query($qry);
 			if($res === true)
 			{
-				while ($arr = $db->get_row_array())
-				{
-					$this->id = $arr["idForm"];
-					$this->key = $arr["keyField"];
-					$this->name = $arr["name"];
-					$this->number = $arr["table_num"];
-					$this->version = $arr["version"];
-					$this->group = $arr["group"];
-					$this->isMain = $arr["isMain"] == "1";
-				}
+                            while ($arr = $db->get_row_array())
+                            {
+                                $this->id = $arr["idForm"];
+                                $this->key = $arr["keyField"];
+                                $this->name = $arr["name"];
+                                $this->number = $arr["table_num"];
+                                $this->version = $arr["version"];
+                                $this->group = $arr["group"];
+                                $this->isMain = $arr["isMain"] == "1";
+                            }
 				
 			}
 			
 			$qry = "SELECT f.idField as idField, f.key, f.name, f.label, ft.name as type, f.required, f.jump, f.isinteger as isInt, f.isDouble, f.title, f.regex, f.doubleEntry, f.search, f.group_form, f.branch_form, f.display, f.genkey, f.date, f.time, f.setDate, f.setTime, f.min, f.max, f.crumb, f.`match`, f.active, f.defaultValue, f.otherFieldProperties, f.upperCase, f.position FROM field f LEFT JOIN fieldtype ft on ft.idFieldType = f.type WHERE ";
 			if(is_numeric($this->id))
 			{
-				$qry = "$qry f.form = {$this->id} ORDER BY f.position";
+                            $qry = "$qry f.form = {$this->id} ORDER BY f.position";
 			}
 			else
 			{
-				$qry = "$qry f.projectName = '{$this->survey->name}' AND f.formname = '{$this->name}' ORDER BY f.position";
+                            $qry = "$qry f.projectName = '{$this->survey->name}' AND f.formname = '{$this->name}' ORDER BY f.position";
 			}
 			
 			$res = $db->do_query($qry);
@@ -192,11 +201,13 @@
 					$fld->form = $this;
 					$fld->fromArray($arr);
 					$fld->otherAttributes = json_decode($arr['otherFieldProperties']);
+                                        
 					$this->fields[$fld->name] = $fld;
 					if($fld->key) $this->key = $fld->name;
 					if($fld->title && $fld->active) array_push($this->titleFields, $fld->name);
 				}
 				
+                                
 				
 				foreach($this->fields as $fld)
 				{
@@ -206,6 +217,7 @@
 					if($res !== true) die($res);
 					while($arr = $db->get_row_array())
 					{
+                                          
 						$opt = new EcOption();
 						$opt->fromArray($arr);
 						$opt->idx = $arr["index"];

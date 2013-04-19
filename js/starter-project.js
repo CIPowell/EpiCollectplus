@@ -1,7 +1,4 @@
 require.config({
-  paths: {
-      "jquery": "empty:"
-  },
   baseUrl : 'js/',
   shim: {
     'backbone': {

@@ -1575,8 +1575,8 @@ MarkerClusterer.CALCULATOR = function (markers, numStyles) {
   return {
     text: dv.toString(),
     index: index,
-    colours : colours.trimChars("|"),
-    counts : counts.trimChars("|")
+    colours : colours.replace(/(^\||\|$)/, ''),
+    counts : counts.replace(/(^\||\|$)/, '')
   };
 };
 

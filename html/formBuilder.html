@@ -1,0 +1,259 @@
+{{page_name}}formbuilder{{/page_name}}
+{{script}}
+    <script type="text/template" id="option-template">
+         <p id="<%= value%>" class="option"><%= label%></p>
+    </script>
+{{/script}}
+{{main}}
+    <header>
+	<h1>Form Builder</h1>
+    </header>
+	<div id="btn-toolbar" class="toolbar row-fluid" data-spy="affix-top" >
+            <div class="span12">
+                <a class="btn btn-success" href="javascript:saveProject()" class="button"><span class="icon-ok icon-white"></span> Save Project</a>
+                <span>&nbsp;</span>
+                <span class="btn btn-primary"><span class="icon-file icon-white"></span> Add a new form</span>
+                <a href="javascript:project.forms[currentForm.name].displayForm({ debug : true });" class="button"><span class="icon-search"></span> Preview Form</a>
+                <a href="javascript:renameForm(currentForm.name);" class="button">Rename Form</a>
+                <a class="btn btn-danger" href="javascript:removeForm(currentForm.name);" class="button"><span class="icon-trash icon-white"></span> Delete Form</a>
+            </div>
+        </div>
+	<div id="formList" class="row-fluid affix-top" data-spy="affix"  data-offset-top="50">
+            <h3>Forms : </h3>
+	</div>
+
+	<div class="builder row-fluid">
+            <div id="source" class="span3 accordion">
+                <div class="accordion-group">
+                    <div class="accordion-heading">
+                        <a class="accordion-toggle" data-toggle="collapse" data-parent="#source" href="#basic">Basic inputs</a>
+                    </div>
+                    <div id="basic" class="accordion-body collapse in">
+                        <div class="accordion-inner">
+                            <div class="ecplus-form-element ecplus-text-element" type="text">
+                                <span class="title">Text</span> 
+                                <span class="icon-font pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-numeric-element" type="numeric">
+                                <span class="title">Numeric</span>
+                                <span class="icon-numeric pull-right">123</span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-date-element" type="date">
+                                <span class="title">Date</span> 
+                                <span class="icon-calendar pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-time-element" type="time">
+                                <span class="title">Time</span> 
+                                <span class="icon-time pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-select1-element" type="select1">
+                                <p><span class="title">Drop-down list</span><span class="icon-chevron-down pull-right"></span></p> 
+                                <p class="option">Option One</p>
+                                <p class="option">Option Two</p>
+                            </div>
+                            <div class="ecplus-form-element ecplus-radio-element" type="radio">
+                                <p><span class="title">Radio Buttons</span><span class=" pull-right"><input type="radio" checked="checked" disabled="disabled" /></span></p> 
+                                <p class="option">Option On</p>
+                                <p class="option">Option Two</p>
+                            </div>
+                            <div class="ecplus-form-element ecplus-select-element" type="select">
+                                <p><span class="title">Select multiple</span><span class=" pull-right"><input type="checkbox" checked="checked" disabled="disabled" /></span></p> 
+                                <p class="option">Option One</p>
+                                <p class="option">Option Two</p>
+                            </div>
+                            <div class="ecplus-form-element ecplus-textarea-element" type="textarea">
+                                <p class="title">Multi-line Text</p> 
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-group">
+                    <div class="accordion-heading">
+                        <a class="accordion-toggle" data-toggle="collapse" data-parent="#source" href="#media">Media inputs</a>
+                    </div>
+
+                    <div id="media" class="accordion-body collapse">
+                       <div class="accordion-inner">
+                            <div class="ecplus-form-element ecplus-location-element" type="location">
+                                <span class="title">Location</span> 
+                                <span class="icon-map-marker pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-photo-element" type="photo">
+                                <span class="title">Photograph</span> 
+                                <span class="icon-camera pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-video-element" type="video">
+                                <span class="title">Video</span> 
+                                <span class="icon-facetime-video pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-audio-element" type="audio">
+                                <span class="title">Audio</span> 
+                                <span class="icon-bullhorn pull-right"></span>
+                            </div>
+                            <div class="ecplus-form-element ecplus-barcode-element" type="barcode">
+                                <span class="title">Barcode</span> 
+                                <span class="icon-barcode pull-right"></span>
+                            </div>
+                       </div>
+                   </div>
+                </div>
+                
+      		<div class="accordion-group">
+                    <div class="accordion-heading">
+                        <a class="accordion-toggle" data-toggle="collapse" data-parent="#source" href="#links">Links to other forms</a>
+                    </div>
+
+                    <div id="links" class="accordion-body collapse">
+                        <div class="accordion-inner">
+                           <div class="ecplus-form-element ecplus-fk-element" type="fk">
+                               <span class="title">Link from another form</span> 
+                               <span class="icon-share-alt pull-right"></span>
+                           </div>
+                           <div class="ecplus-form-element ecplus-branch-element" type="branch">
+                               <span class="title">Branch Form</span> 
+                               <span class="icon-retweet pull-right"></span>
+                           </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!--source-->
+            
+	    <div id="form" class="column span6">
+	        <h3>Form</h3>
+	        <p><i>Build a form by dragging controls between the lines below.</i></p>
+		
+	        <div class="ui-sortable" id="destination">
+                    <div class="end">&nbsp;</div>
+                </div>
+	    </div>
+            
+	    <div id="details" class="column span3">
+	        <h3>Field Properties</h3>	
+	       		<form id="props" class="">
+                            <div id="labelCtrl" class="control-group" notfor="fk" data-toggle="tooltip" title="The text displayed to the user" >
+                                <label for="inputLabel" class="control-label">
+                                    Label
+                                </label>
+                                <div class="controls">
+                                    <input id="inputLabel" name="text" type="text"/>
+                                </div>
+                            </div>
+                            <div id="nameCtrl" notfor="fk">
+                                <label for="inputId">
+                                    <a href="http://www.epicollect.net/formHelp.asp#ids" target="_blank">ID</a>
+                                </label>
+                                <input id="inputId" name="id" type="text"  maxlength="45" />
+                            </div>
+                            <div id="requiredCtrl" notfor="fk">
+                                <label for="required">Required</label>
+                                <input type="checkbox" id="required" name="required" class="btn" value="true" />
+                            </div>
+                            <div id="fkPanel" allow="fk">
+                                <label>Use key from </label><select id="parent" name="parent"></select>
+                            </div>
+                            <div id="branchButton" allow="branch">
+                                <a href="javascript:switchToBranch();" class="button">Edit branch form</a>
+                            </div>
+                            <div id="titleCtrl" allow="text,numeric,select1,radio,barcode">
+                                <label for="title">Title</label> 
+                                <input type="checkbox" id="title" name="title" value="true" />
+                            </div>
+                            <div id="keyCtrl" allow="text,numeric,barcode">
+                                <label for="key">Key</label> 
+                                <input type="checkbox" id="key" name="key" value="true" />
+                            </div>
+                            <div allow="text,numeric,select1,radio,barcode">
+                                <label for="search">Searchable</label> 
+                                <input type="checkbox" id="search" name="search" value="true" />
+                            </div>
+                            <div allow="numeric">
+                                <div class="btn-group">
+                                    <label for="decimal">Decimal</label> 
+                                   k <input type="radio" id="decimal" name="numeric" value="decimal" />
+                                    <label for="integer">Integer</label> 
+                                    <input type="radio" id="integer"  name="numeric" value="integer" /><br/>
+                                    <label for="min">Minumum Value</label> 
+                                </div>
+                                <input type="number" id="min" name="min" />
+                                <label for="max">Maximum Value</label> 
+                                <input type="number" id="max" name="max" />
+                            </div>
+				    <div allow="date">	
+                                        <label for="date">Date Format</label> 
+                                        <select id="date" name="date" >
+                                            <option value="">Choose a format ...</option>
+                                            <option value="dd/MM/yyyy">Day/Month/Year</option>
+                                            <option value="MM/dd/yyyy">Month/Day/Year</option>
+                                            <option value="yyyy/MM/dd">Year/Month/Day</option>
+                                            <option value="MM/yyyy">Month/Year</option>
+                                            <option value="dd/MM">Day/Month</option>
+                                        </select>
+				    </div>
+				    <div allow="time">
+                                        <label for="inputmax">Time Format</label> 
+                                        <select id="time" name="time" >
+                                            <option value="">Choose a format ...</option>
+                                            <option value="HH:mm:ss">Hours:Minutes:Seconds (24 hours)</option>
+                                            <option value="hh:mm:ss">Hours:Minutes:Seconds (12 hours)</option>
+                                            <option value="HH:mm">Hours:Minutes (24 hours)</option>
+                                            <option value="hh:mm">Hours:Minutes (12 hours)</option>
+                                            <option value="mm:ss">Minutes:Seconds</option>
+                                        </select>
+				    </div>
+				   	<div allow="date,time">
+                                            <label for="set">Set default to current date/time</label> 
+                                            <input type="checkbox" id="set" name="set" value="true" />
+                                        </div>
+                                        <div allow="text,numeric" notfor="key,audio,fk,video,location,photo,date,time,branch">
+                                            <label for="inputdefault">Default</label>
+                                            <input type="text" id="default" name="defaultValue"  maxlength="1000" />
+                                        </div>
+                                        <div allow="text,textarea,barcode">
+                                            <label for="inputregex">Regular Expression</label> 
+                                            <input type="text" id="regex" name="regex" maxlength="255" title="Enter a regular expression without the opening and closing slashes."/>
+                                         </div>
+				     <div allow="text,numeric,date,time,barcode">
+				        	<label for="verify">Double Entry</label>
+				        	<input type="checkbox" id="verify" name="verify" value="true" />
+				     </div>
+				     <div allow="key">
+				       	<label for="genkey">Generate Key</label>
+				       	<input type="checkbox" id="genkey" name="genkey" value="true" />
+					</div>
+					<div allow="gen,fk">
+				      	<label for="hidden">Hidden</label>
+				      	<input type="checkbox" id="hidden" name="hidden" value="true" />
+				    </div> 
+					<div id="options" allow="select,radio,select1">
+						<hr />
+						<h3>Options</h3>
+						 <a id="addSelectOneOption" href="javascript:addOption();" class="button">Add Option</a>
+						 <div class="selectOption">
+									<hr />
+									<a href="http://www.epicollect.net/formHelp.asp#editSelects" target="_blank">Label</a><input name="optLabel" />
+									<br /><a href="http://www.epicollect.net/formHelp.asp#editSelects" target="_blank">Value</a><input name="optValue" />
+									<br><a href="javascript:void(0);" class="button removeOption">Remove Option</a>	 
+						 </div> 
+					</div>
+					<div id="jumps" allow="select,radio,select1">
+						<hr />
+						<h3>Jumps</h3>
+						<a href="javascript:addJump();updateLastJump();" class="button">Add Jump</a>
+						
+					</div>
+					<hr />
+					<div><a class="button " href="javascript:updateSelectedCtl();">Done</a>
+						<a class="button removeControl" href="javascript:removeSelected();">Delete</a>
+					</div>
+				</form>
+		    </div>
+			
+	    </div> <!-- details-->
+	</div> <!--columns-->
+<p>
+</p><div class="formOptions">
+    <!--Allow users to edit entries initially recorded on other users' devices? (<a href="http://www.epicollect.net/formHelp.asp#allowDownloadEdits" target="_blank">help</a>) --><input name="allowDownloadEdits" type="hidden">
+</div>
+<p>
+{{/main}}

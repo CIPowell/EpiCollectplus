@@ -706,6 +706,23 @@ class EcProject{
 				return $xml;
 		}
 		
+                public function toJSON($base_url)
+		{
+                    $project = array(
+                        'name' => $this->name,
+                        'allowDownloadEdits' => $this->allowDownloadEdits,
+                        'version' => $this->ecVersionNumber,
+                        'tables' => array()
+                    );
+                    
+                    foreach($this->tables as $name => $table)
+                    {
+                        array_push($project['tables'], $table->asArray());
+                    }
+                    
+                    return json_encode($project);
+                }
+                
 		//Function to accept an XML upload from a phone or recovery
 		public function parseEntries($xml)
 		{

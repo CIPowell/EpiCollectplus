@@ -9,6 +9,33 @@
 			
 		{#script#}
 		
+                    <script type="text/template" id="dialog-template">
+                        <div id="<%= id %>" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+                            <div class="modal-header">
+                            <% if (preventClose === false){%>
+                              <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                              <%}%>
+                              <h3 id="myModalLabel"><%= title %></h3>
+                            </div>
+                            <div class="modal-body">
+                              <p><%= message %></p>
+                            </div>
+                            <div class="modal-footer">
+                              <% _.each(buttons, function(button){%>
+                                    <button id="<%= button.id %>" class="btn <%= button.type %>" aria-hidden="true"><%= button.label %></button>
+                                <%});%>
+                               <% if (preventClose === false){%>
+                                <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+                              <%}%>
+                            </div>
+                          </div>
+                    </script>
+                    <script type="text/template" id="alert-template">
+                        <div id="alert" class="alert <%= type %>" >
+                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                            <strong><%= title %></strong><%= message %>
+                        </div>
+                    </script>
 		<link rel="icon" href="favicon.ico" type="image/x-icon" /> 
 		<link rel="shortcut icon" href="favicon.png" type="image/png" />
 		
@@ -16,40 +43,39 @@
 		<title>EpiCollect+</title>
 	</head>
 	<body>
-            <header class="container">
-                <div class="row">
-                    <div id="logo" class="span4">
-                            <a href="{#SITE_ROOT#}/"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /></a><span class="beta-tag">Beta</span>
-                    </div>  
-
-                    <section id="login-status" class="span8">	
-                        {#loggedIn#}
-                    </section>
+            <header class="navbar navbar-fixed-top">
+                <div class="navbar-inner">
+                   <nav>
+                       <div class="row-fluid">
+                            <a href="{#SITE_ROOT#}/" class="brand span3"><img alt="EpiCollect+" src="{#SITE_ROOT#}/images/logo_new_plus_thin.png" width="242" height="50" /><span class="beta-tag">Beta</span></a>
+                            <ul class="nav span5">
+                                <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
+                                <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
+                                <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
+                            </ul>
+                            <span id="login-status" class="span4 row">	
+                                {#loggedIn#}
+                            </span>
+                       </div>
+                    </nav>
                 </div>
-		<!--<div id="breadcrumbs"><a href="{#SITE_ROOT#}/">Home</a>{#breadcrumbs#}</div>-->
-            </header>
-          
+           </header> 
             
-            
-		<section id="main" class="container">
-                      <div class="navbar navbar-fixed">
-                        <div class="navbar-inner">
-                                <ul class="nav">
-                                    <li><a href="{#SITE_ROOT#}/createProject.html">Create Project</a></li>
-                                    <li><a href="http://www.epicollect.net/plus/Instructions/default.html" target="__blank">Instructions </a></li>
-                                    <li><a href="{#SITE_ROOT#}/privacy.html">Privacy Policy</a>  </li>
-                                </ul>
-                        </div>
-                    </div> 
-                    <ul class="nav nav-pills">
-                        <li class="active"><a href="">Home</a></li>
-                        <li><a href="./{#projectName#}/formBuilder">Form Builder</a></li>
-                        <li><a href="./{#projectName#}/manage">Manage Project </a></li>
-                        <li><a href="./{#projectName#}.xml">Show XML</a> </li>
-                    </ul>
-			{#main#}
-		</section>
-		<footer class="container"> 
+            <section id="main">
+                <h1>{#projectName#}</h1>
+                <div class="navbar navbar-inverse">
+                    <div class="navbar-inner">
+                        <ul class="nav">
+                            <li><a href="">Home</a></li>
+                            <li><a href="./{#projectName#}/formBuilder">Form Builder</a></li>
+                            <li><a href="./{#projectName#}/manage">Manage Project </a></li>
+                            <li><a href="./{#projectName#}.xml">Show XML</a> </li>
+                        </ul>
+                    </div>
+                </div>
+                            {#main#}
+        </section>
+		<footer> 
                     <div class="row">
 			<span class="span6">Version {#codeVersion#} - EpiCollect+ is developed at <a href="http://www.imperial.ac.uk" target="_blank">Imperial College London</a> | <a href="mailto:d.aanensen@imperial.ac.uk">Contact us </a></span>
 			<span class="span6 right"><a href="http://github.com/ImperialCollectLondon/EpiCollectPlus"  target="__blank"> <span class="icon-folder-open" ></span> Github</a>

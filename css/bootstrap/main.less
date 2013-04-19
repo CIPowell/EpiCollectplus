@@ -1,27 +1,70 @@
 @import "less/bootstrap.less";
 @import "less/responsive.less";
 
+body
+{
+    margin-top: 75px;
+}
+
+.container-type
+{
+    .container-fluid;
+}
+
+
 footer
 {
+    .container-type;
     margin-top : 0.5em;
     padding-top : 0.5em;
     border-top : 1px solid @navbarBorder;
 }
 
-header
+nav
 {
-    margin-bottom : 1em;
+    .container-type;
+}
+
+.navbar
+{
+    .nav
+    {
+        margin : 1.5em 0 0.5em 0;
+    }
+}
+
+.navbar-inverse
+{
+    .navbar-inner
+    {
+        border: 1px solid @grayLight;
+        background: @grayLighter;
+       
+    }
+    
+    .nav
+    {
+        margin : 0.1em 0 0.1em 0;   
+        
+        li > a:hover
+        {
+             color : @black;
+        }
+        
+        
+    }
 }
 
 #login-status 
 {   
+    color : @navbarText;
     text-align : right;
     padding-top : 1em;
 
     a
     {
         .btn;
-        .btn-small;
+        .btn-mini;
     }
 }
 
@@ -30,14 +73,14 @@ header
     text-align : right;
 }
 
-body
-{
-    margin-top: 3.5em;
-}
-
-#logo
+.brand
 {   
     position : relative;
+}
+
+#main
+{
+    .container-type;
 }
 
 .beta-tag {
@@ -45,8 +88,8 @@ body
     font-weight: bold;
     color: #a54df9;
     position: absolute;
-    left: 10em;
-    bottom: -0.5em;
+    right: 2em;
+    bottom: 0em;
     z-index: 5;
 }
 
@@ -145,50 +188,49 @@ msg
     text-align : right;
 }
 
-.row
+.choose
 {
-    &.choose
+    border-top: 1px solid @tableBorder;
+    border-bottom: 1px solid @tableBorder;
+    min-height: 8em;
+    padding : @paddingLarge;
+
+    #uploadBox
     {
-        border-top: 1px solid @tableBorder;
-        border-bottom: 1px solid @tableBorder;
-        min-height: 8em;
-        padding : @paddingLarge;
-
-        #uploadBox
-        {
-            padding: (@baseLineHeight / 2) 0;
-        }
-
-        iframe
-        {
-            width : 95%;
-            height : 8em;
-            border: 1px solid @navbarBorder ;
-        }
-
-        .btn
-        {
-            width : 95.5%;
-            border-bottom-left-radius : 0;
-            border-bottom-right-radius : 0;
-        }
+        padding: (@baseLineHeight / 2) 0;
     }
-    
-}		
+
+    iframe
+    {
+        width : 95%;
+        height : 8em;
+        border: 1px solid @navbarBorder ;
+    }
+
+    .btn
+    {
+        width : 95.5%;
+        border-bottom-left-radius : 0;
+        border-bottom-right-radius : 0;
+    }
+}
+		
 
 table
 {
     .table;
     .table-bordered;
-    .table-striped;
     .table-hover;
 
     width: auto;
     max-width: none;
+    margin-bottom : 0;
 
     thead th
     {
         vertical-align : top;
+        background-color: @black;
+        color: @white;
     }
     
     td
@@ -196,13 +238,111 @@ table
         background-color : transparent;
     }
 
-    tbody tr:hover
-    {
-        background-color : @infoBackground;
-    }
-
     tr.selected
     {
         background-color : @infoBackground;
     }
+}
+
+#table-container
+{
+    overflow-x : scroll;
+    margin-bottom: @gridGutterWidth;
+}
+
+#map
+{
+    min-height : 400px;
+
+    img
+    {
+        max-width : none;
+    }   
+}
+
+.builder
+{
+    .column 
+    {
+        border: 1px solid @tableBorder;
+        border-radius: 1em;
+        padding : @paddingLarge;
+    }
+}
+
+#destination
+{
+    border-top : 1px solid @grayLight;
+    border-bottom : 1px solid @grayLight;
+}
+
+.ecplus-form-element
+{
+    border-radius : 0.5em;
+    padding : @paddingSmall;
+    background : @grayLighter;
+    margin : 5px 0px 5px 0px;
+    border : 1px solid @grayLighter;
+
+    &:hover
+    {
+        border : 1px solid @grayLight;
+        cursor: url(https://mail.google.com/mail/images/2/openhand.cur), default;
+    }
+    
+    &:active
+    {
+        cursor: url(https://mail.google.com/mail/images/2/closedhand.cur), default;
+    }
+
+    .title
+    {
+        font-weight : bold;
+    }
+
+    .option
+    {
+        font-size : @fontSizeSmall;
+        margin-left : 1em;
+        margin-bottom : 0.1em;
+    }
+}
+
+#formList
+{
+    padding: 1em 0;
+    min-height: 5em;
+
+    .form
+    {
+        display : inline-block;
+        padding : 1em 0.5em;
+        font-weight : bold;
+        font-size: @fontSizeLarge;
+        border : 2px solid @grayLight;
+        .border-radius(1em);
+
+        &.selected
+        {
+            border : 2px solid @blueDark;
+        }
+
+        &:hover
+        {
+            border : 2px solid @blue;
+            cursor : pointer;
+        }
+    }
+
+
+}
+
+.ui-sortable-placeholder
+{
+    background-color : @successBackground;
+}
+
+.affix
+{
+    top: 10px;
 }

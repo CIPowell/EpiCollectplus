@@ -1794,26 +1794,7 @@ function updateProject()
 }
 
 
-function formBuilder()
-{
-	global $url, $auth;
-	$prj_name = str_replace('/formBuilder', '', $url);
-	
-        $prj = new EcProject();
-        $prj->name = $prj_name;
-        $prj->fetch();
-        
-        $uid = $auth->getEcUserId();
-        
-        if($prj->checkPermission($uid))
-        {
-            echo applyTemplate('./project_base.html' , './createOrEditForm.html', array('projectName' => $prj_name));
-        }
-        else
-        {
-            accessDenied(sprintf(' Project %s' , $prj_name ));
-        }
-}
+
 
 function getControlTypes()
 {

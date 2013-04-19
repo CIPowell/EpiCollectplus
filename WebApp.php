@@ -293,35 +293,35 @@ class EpiCollectWebApp
 
             if(array_key_exists('flashes', $_SESSION) && is_array($_SESSION['flashes']))
             {
-                    while($flash = array_pop($_SESSION['flashes']))
-                    {
-                            $flashes .= sprintf('<p class="flash %s">%s</p>', $flash["type"], $flash["msg"]);
-                    }
+                while($flash = array_pop($_SESSION['flashes']))
+                {
+                    $flashes .= sprintf('<p class="flash %s">%s</p>', $flash["type"], $flash["msg"]);
+                }
             }
 
 
             try{
-                    if( $this->db->connected && $this->auth && $this->auth->isLoggedIn())
-                    {
+                if( $this->db->connected && $this->auth && $this->auth->isLoggedIn())
+                {
 
-                            //if so put the user's name and a logout option in the login section
-                            if($this->auth->isServerManager())
-                            {
-                                    $template = str_replace('{#loggedIn#}', 'Logged in as ' . $this->auth->getUserNickname() . ' (' . $this->auth->getUserEmail() .  ')  <a href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>  <a href="{#SITE_ROOT#}/admin">Manage Server</a>', $template);
-                            }
-                            else
-                            {
-                                    $template = str_replace('{#loggedIn#}', sprintf('Logged in as %s (%s) <a class="btn btn-mini" href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>', $this->auth->getUserNickname(), $this->auth->getUserEmail()), $template);
-                            }
-                            $templateVars['userEmail'] = $this->auth->getUserEmail();
+                    //if so put the user's name and a logout option in the login section
+                    if($this->auth->isServerManager())
+                    {
+                            $template = str_replace('{#loggedIn#}', 'Logged in as ' . $this->auth->getUserEmail() . ' <div><a href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a>  <a href="{#SITE_ROOT#}/admin">Manage Server</a></div>', $template);
                     }
-                    // else show the login link
                     else
                     {
-                            $template = str_replace('{#loggedIn#}', '<a href="{#SITE_ROOT#}/login">Sign in</a>', $template);
+                            $template = str_replace('{#loggedIn#}', sprintf('Logged in as %s <div><a class="btn btn-mini" href="{#SITE_ROOT#}/logout">Sign out</a>  <a href="{#SITE_ROOT#}/updateUser.html">Update User</a></div>', $this->auth->getUserEmail(), $template));
                     }
-                    // work out breadcrumbs
-                    //$template = str_replace("{#breadcrumbs#}", '', $template);
+                    $templateVars['userEmail'] = $this->auth->getUserEmail();
+                }
+                // else show the login link
+                else
+                {
+                        $template = str_replace('{#loggedIn#}', '<a href="{#SITE_ROOT#}/login">Sign in</a>', $template);
+                }
+                // work out breadcrumbs
+                //$template = str_replace("{#breadcrumbs#}", '', $template);
             }catch(Exception $err){
                     siteTest();
             }	
@@ -644,8 +644,8 @@ class EpiCollectWebApp
         if( !$prj->isPublic && !$loggedIn && !preg_match('/\.xml$/',$url) )
         {
             EpiCollectWebApp::flash('This is a private project, please log in to view the project.');
-            $this->loginHandler($url);
-            return;
+            return $this->loginHandler($url);
+            
         }
         else if( !$prj->isPublic && $role < 2 && !preg_match('/\.xml$/',$url) )
         {
@@ -698,8 +698,8 @@ class EpiCollectWebApp
                 if( $res === true )
                 {
                     EpiCollectWebApp::OK();
-                    echo '{ "success": true }';
-                    return;
+                    return '{ "success": true }';
+                    
                 }
                 else
                 {
@@ -724,6 +724,9 @@ class EpiCollectWebApp
             {
                 EpiCollectWebApp::ContentType('xml');
                 return $prj->toXML($this->base_url);
+            }elseif( $format == 'json' ){
+                 EpiCollectWebApp::ContentType('json');
+                return $prj->toJSON($this->base_url);
             }else {
                 EpiCollectWebApp::ContentType('html');
 
@@ -777,6 +780,27 @@ class EpiCollectWebApp
                     return $this->applyTemplate('base.html','error.html',$vals);
                 }
             }
+        }
+    }
+    
+    function formBuilder()
+    {
+	$url = $this->get_request_url();
+	$prj_name = str_replace('/formBuilder', '', $url);
+	
+        $prj = new EcProject();
+        $prj->name = $prj_name;
+        $prj->fetch($this->db);
+        
+        $uid = $this->auth->getEcUserId($this->db);
+        
+        if($prj->checkPermission($this->db, $this->auth, $uid))
+        {
+            return  $this->applyTemplate('./project_base.html' , './formBuilder.html', array('projectName' => $prj_name));
+        }
+        else
+        {
+            EpiCollectUtils::accessDenied(sprintf(' Project %s' , $prj_name ));
         }
     }
     
@@ -1319,9 +1343,7 @@ class EpiCollectWebApp
 	$prj->fetch($this->db);
 	
 	if(!$prj->id)
-	{
-		return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "404 ", "error" => "The project {$prj->name} does not exist on this server"));
-		
+	{return $this->applyTemplate("./base.html", "./error.html", array("errorType" => "404 ", "error" => "The project {$prj->name} does not exist on this server"));
 	}
 	
 	
@@ -1350,41 +1372,67 @@ class EpiCollectWebApp
 	
 	if($picName)
 	{
-		$tn = sprintf('./ec/uploads/%s~tn~%s', $prj->name, $picName);
-		$full = sprintf('./ec/uploads/%s~%s', $prj->name, $picName);
-		
-		$thumbnail = EpiCollectUtils::array_get_if_exists($_GET, 'thumbnail') === 'true';
-		
-		$raw_not_tn = str_replace('~tn~', '~', $picName);
-		
-		if(!$thumbnail && file_exists($full))
-		{
-			//try with project prefix
-			echo file_get_contents($full);
-		}
-		elseif(file_exists($tn))
-		{
-			//try with project and thumbnail prefix
-			echo file_get_contents($tn);
-		}
-		elseif(!$thumbnail && file_exists(sprintf('./ec/uploads/%s', $raw_not_tn)))
-		{
-			//try with raw non thumbnail filename
-			echo file_get_contents(sprintf('./ec/uploads/%s', $raw_not_tn));
-		}
-		elseif(file_exists(sprintf('./ec/uploads/%s', $picName)))
-		{
-			//try with raw filename
-			echo file_get_contents(sprintf('./ec/uploads/%s', $picName));
-		}
-		else
-		{
-			echo file_get_contents('./images/no_image.png');
-		}
+            $thumbnail = EpiCollectUtils::array_get_if_exists($_GET, 'thumbnail') === 'true';
+            $raw_not_tn = str_replace('~tn~', '~', $picName);
+
+            $tn = sprintf('./ec/uploads/%s~tn~%s', $prj->name, $picName);
+            $full = sprintf('./ec/uploads/%s~%s', $prj->name, $picName);
+            $tn_no_project = sprintf('./ec/uploads/%s', $raw_not_tn);
+            $full_no_project = sprintf('./ec/uploads/%s', $picName);
+    
+            if(!$thumbnail && file_exists($full))
+            {
+                    //try with project prefix
+                    return file_get_contents($full);
+            }
+            elseif($thumbnail && file_exists($tn))
+            {
+                    //try with project and thumbnail prefix
+                    return file_get_contents($tn);
+            }
+            elseif(!$thumbnail && file_exists($tn_no_project))
+            {
+                    //try with raw non thumbnail filename
+                    return file_get_contents($tn_no_project);
+            }
+            elseif(file_exists($full_no_project))
+            {
+                    //try with raw filename
+                    if($thumbnail)
+                    {
+                        $size = getimagesize($full_no_project);
+                        $raw = imagecreatefromjpeg($full_no_project);
+
+                        $width = 64.0;
+                        $ratio = $width / $size[0];
+                        $height = round($size[1] * $ratio);
+
+                        $thumbnailed = imagecreate($width, $height);
+
+                        print imagecopyresized($thumbnailed, $raw, 0, 0, 0, 0, $width+1, $height+1, $size[0], $size[1]);
+
+                        print imagejpeg($thumbnailed, $tn, 70);
+                        
+                        return file_get_contents($tn);
+                    }
+                    else
+                    {
+                        return file_get_contents($full_no_project);
+                    }
+            }
+            elseif(file_exists($tn))
+            {
+                    //try with project and thumbnail prefix
+                    return file_get_contents($tn);
+            }
+            else
+            {
+                    return file_get_contents('./images/no_image.png');
+            }
 	}
 	else
 	{
-		echo file_get_contents('./images/no_image.png');
+		return file_get_contents('./images/no_image.png');
 	}
 }
     

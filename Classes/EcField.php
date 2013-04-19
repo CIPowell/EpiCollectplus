@@ -133,56 +133,192 @@ class EcField{
 			$xml.= "</{$this->type}>";
 			return $xml;
 		}
+                
+                public function asArray()
+                {
+                    $field = array(
+                        'idField' => $this->idField,
+                        'name' => $this->name,
+                        'label' => $this->label,
+                        'type' => $this->type,
+                        'required' => $this->required,
+                        'integer' => $this->isInt,
+                        'double' => $this->isDouble,
+                        'regex' => $this->regex,
+                        'title' => $this->title,
+                        'verify' => $this->doubleEntry,
+                        'jump' => $this->jump, // We should hanlde these as semantic objects. I.e. [{rule,target},...]
+                        'search' => $this->search, // Should be have to declare this ahead of time?
+                        'group' => $this->group_form, // Not fully supported. 
+                        'branch' => $this->branch_form,
+                        'display' => $this->display,
+                        'key' => $this->key,
+                        'genkey' => $this->genkey,
+                        'upperCase' => $this->upperCase,
+                        'date' => $this->date,
+                        'time' => $this->time,
+                        'setDate' => $this->setDate,
+                        'setTime' => $this->setTime,
+                        'min' => $this->min,
+                        'max' => $this->max,
+                        'crumb' => $this->crumb,
+                        'match' => $this->match,
+                        'default' => $this->defaultValue,
+                        'options' => array()
+                    ); 
+                    
+                    foreach( $this->otherAttributes as $att => $val ) {
+                        if(!array_key_exists($att, $field))
+                        {
+                            $field[$att] = $val;
+                        }
+                    }
+                    
+                    foreach($this->options as $opt)
+                    {
+                        array_push($field['options'], array('label' => $opt->label, 'value' => $opt->value));
+                    }
+                    
+                    return $field;
+                }
+                
 		public function toJson()
 		{
-			$json = "\n\t\t{\"type\" : \"{$this->type}\", \"name\":\"{$this->name}\",";
-			if($this->required) $json .= ' "required" :true,';
-			if($this->isInt) $json .= ' "integer":true,';
-			if($this->isDouble) $json .= ' "double":true,';
-			if($this->regex) $json .= " \"regex\":\"{$this->regex}\",";
-			if($this->title) $json .= ' "title":true,';
-			if($this->doubleEntry) $json .= ' "verify":true,';
-			if($this->jump) $json .= " \"jump\":\"{$this->jump}\",";
-			if($this->search) $json .= " \"search\":\"true\",";
-			if($this->group_form) $json .= " \"group\":\"{$this->group_form}\",";
-			if($this->branch_form) $json .= " \"branch_form\":\"{$this->branch_form}\",";
-			if(!$this->display) $json .= " \"display\":\"false\",";
-			if($this->genkey) $json .= " \"genkey\":\"true\",";
-			if($this->upperCase) $json .= " \"uppercase\":\"true\",";
-			if($this->date) $json .= " \"date\":\"{$this->date}\",";
-			if($this->time) $json .= " \"time\":\"{$this->time}\",";
-			if($this->setDate) $json .= " \"setdate\":\"{$this->date}\",";
-			if($this->setTime) $json .= " \"settime\":\"{$this->setTime}\",";
-			if($this->min) $json .= " \"min\":\"{$this->min}\",";
-			if($this->max) $json .= " \"max\":\"{$this->max}\",";
-			if($this->crumb) $json .= " \"crumb\":\"{$this->crumb}\",";
-			if($this->match) $json .= " \"crumb\":\"{$this->match}\",";
-			if($this->defaultValue) $json .= " \"default\":\"{$this->defaultValue}\",";
-			
-			foreach( $this->otherAttributes as $att => $val ) {
-				$json = sprintf('%s "%s" : "%s",', $xml, $att, $val);
-			}
-			
-			$json.= "\n\t\t\t\"label\" : \"{$this->label}\",\n\t\t\"options\":[";
-			$i =0;
-			
-			foreach($this->options as $opt)
-			{
-				$json .= ($i > 0 ? "," : "") . "\n\t\t\t\t{\n\t\t\t\t\t\"label\":\"{$opt->label}\",\n\t\t\t\t\t\"value\" : \"{$opt->value}\"\n\t\t\t}";
-				$i++;
-			}
-			$json.= "]}";
-			
-			return $json;
-		}
+                    return json_encode($this->asArray());
+                }
+//			$json = "\n\t\t{\"type\" : \"{$this->type}\", \"name\":\"{$this->name}\",";
+//			if($this->required) $json .= ' "required" :true,';
+//			if($this->isInt) $json .= ' "integer":true,';
+//			if($this->isDouble) $json .= ' "double":true,';
+//			if($this->regex) $json .= " \"regex\":\"{$this->regex}\",";
+//			if($this->title) $json .= ' "title":true,';
+//			if($this->doubleEntry) $json .= ' "verify":true,';
+//			if($this->jump) $json .= " \"jump\":\"{$this->jump}\",";
+//			if($this->search) $json .= " \"search\":true,";
+//			if($this->group_form) $json .= " \"group\":\"{$this->group_form}\",";
+//			if($this->branch_form) $json .= " \"branch_form\":\"{$this->branch_form}\",";
+//			if(!$this->display) $json .= " \"display\":false,"; else  $json .= " \"display\":true,"; 
+//                        if($this->key) $json .= " \"key\":true,"; else  $json .= " \"key\":false,"; 
+//			if($this->genkey) $json .= " \"genkey\":true,";
+//			if($this->upperCase) $json .= " \"uppercase\":true,";
+//			if($this->date) $json .= " \"date\":\"{$this->date}\",";
+//			if($this->time) $json .= " \"time\":\"{$this->time}\",";
+//			if($this->setDate) $json .= " \"setdate\":\"{$this->setDate}\",";
+//			if($this->setTime) $json .= " \"settime\":\"{$this->setTime}\",";
+//			if($this->min) $json .= " \"min\":\"{$this->min}\",";
+//			if($this->max) $json .= " \"max\":\"{$this->max}\",";
+//			if($this->crumb) $json .= " \"crumb\":\"{$this->crumb}\",";
+//			if($this->match) $json .= " \"match\":\"{$this->match}\",";
+//			if($this->defaultValue) $json .= " \"default\":\"{$this->defaultValue}\",";
+//			
+//			foreach( $this->otherAttributes as $att => $val ) {
+//				$json = sprintf('%s "%s" : "%s",', $xml, $att, $val);
+//			}
+//			
+//			$json.= "\n\t\t\t\"label\" : \"{$this->label}\",\n\t\t\"options\":[";
+//			$i =0;
+//			
+//			foreach($this->options as $opt)
+//			{
+//				$json .= ($i > 0 ? "," : "") . "\n\t\t\t\t{\n\t\t\t\t\t\"label\":\"{$opt->label}\",\n\t\t\t\t\t\"value\" : \"{$opt->value}\"\n\t\t\t}";
+//				$i++;
+//			}
+//			$json.= "]}";
+//			
+//			return $json;
+//		}
 		
+                public function StringArrVal(&$arr, $key)
+                {
+                    if(array_key_exists($key, $arr))
+                    {
+                        $val = $arr[$key];
+                        unset($arr[$key]);
+                        return $val;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                
+                public function IntArrVal(&$arr, $key)
+                {
+                   if(array_key_exists($key, $arr))
+                   {
+                       $val = intval($arr[$key]);
+                       unset($arr[$key]);
+                       return $val;
+                   }
+                   else
+                   {
+                       return null;
+                   }
+                }
+                
+                public function DoubleArrVal(&$arr, $key)
+                {
+                   if(array_key_exists($key, $arr))
+                   { 
+                       $val = doubleval($arr[$key]);
+                       unset($arr[$key]);
+                       return $val;
+                   }
+                   else
+                   {
+                       return null;
+                   }
+                }
+                
+                public function BoolArrVal(&$arr, $key, $default = false)
+                {
+                    if(array_key_exists($key, $arr))
+                    {
+                        $val = $arr[$key] === '1';
+                        unset($arr[$key]);
+                        return $val;
+                    }
+                    else 
+                    { 
+                        return $default; 
+                    }
+                }
+                
 		public function fromArray($arr)
 		{
-			foreach(array_keys($arr) as $key)
-			{
-				//print_r($arr);
-				$this->$key = $arr[$key];
-			}
+                    $this->idField = $this->IntArrVal($arr, 'idField');
+                    $this->name = $this->StringArrVal($arr, 'name');
+                    $this->label = $this->StringArrVal($arr, 'label');
+                    $this->type = $this->StringArrVal($arr, 'type');
+                    $this->required = $this->BoolArrVal($arr, 'required');
+                    $this->isInt = $this->BoolArrVal($arr, 'integer');
+                    $this->isDouble = $this->BoolArrVal($arr, 'double');
+                    $this->regex = $this->StringArrVal($arr, 'regex');
+                    $this->title = $this->BoolArrVal($arr, 'title');
+                    $this->doubleEntry = $this->BoolArrVal($arr, 'verify');
+                    $this->jump = $this->StringArrVal($arr, 'jump'); // We should hanlde these as semantic objects. I.e. [{rule,target},...]
+                    $this->search = $this->BoolArrVal($arr, 'search'); // Should be have to declare this ahead of time?
+                    $this->group_form = $this->StringArrVal($arr, 'group'); // Not fully supported. 
+                    $this->branch_form = $this->StringArrVal($arr, 'branch');
+                    $this->display  = $this->BoolArrVal($arr, 'display', true);
+                    $this->key = $this->BoolArrVal($arr, 'key');
+                    $this->genkey =  $this->BoolArrVal($arr, 'genkey');
+                    $this->upperCase =  $this->BoolArrVal($arr, 'upperCase');
+                    $this->date =  $this->StringArrVal($arr, 'date');
+                    $this->time =  $this->StringArrVal($arr, 'time');
+                    $this->setDate =  $this->StringArrVal($arr, 'setDate');
+                    $this->setTime =  $this->StringArrVal($arr, 'setTime');
+                    $this->min =  $this->DoubleArrVal($arr, 'min');
+                    $this->max =  $this->DoubleArrVal($arr, 'max');
+                    $this->crumb =  $this->StringArrVal($arr, 'crumb');
+                    $this->match =  $this->StringArrVal($arr, 'match');
+                    $this->defaultValue =  $this->StringArrVal($arr, 'default');
+
+
+                    foreach($arr as $key => $value)
+                    {
+                        $this->otherAttributes[$key] = $value;
+                    }
 		}
 		
 		public function update()

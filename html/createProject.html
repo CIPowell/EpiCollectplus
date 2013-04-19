@@ -3,15 +3,15 @@
   &gt; <a href="createProject.html">Create Project</a>
 {{/breadcrumbs}}
 {{main}}
-    <div class="row">
+    <div class="row-fluid">
         <div class="span12">
             <h1 id="title">Create a Project</h1>
             <div id="message" class="flashes"></div>
         </div>
     </div>
     <form id="projectOptions" action="create" method="POST">
-        <div class="row choose">
-            <div class="span4 control-group">
+        <div class="row-fluid choose">
+            <div class="span5 control-group">
                  <label class="control-label" for="#projectName">Choose a name for the project</label>
                  <input name="name" id="projectName" />
                  <div id="projectNameMsg"></div>
@@ -19,7 +19,7 @@
             <div class="span2">
                 <h2>OR</h2>
             </div>
-            <div id="uploadBox" class="span4">
+            <div id="uploadBox" class="span5">
                 
                     <button type="button" class="btn btn-primary" data-toggle="collapse" data-target="#uploadpanel">Upload an existing EpiCollect project definition</button>
                     <div id="uploadpanel" class="collapse">
@@ -29,7 +29,7 @@
                     </div>
              </div>
         </div>
-        <div class="row">
+        <div class="row-fluid">
             <div class="span12 permissions">
                 <h2>Project Access</h2>
                 <p>Please choose a level of access for your project.</p>
@@ -40,7 +40,7 @@
                 <label for="project-hidden" class="radio"><input type="radio" name="permission" value="hidden" id="project-hidden" /><strong>Hidden</strong>: No one can see your project unless you add them to it. Intended for use with projects that have sensitive data<label>  
             </div>	
         </div>
-        <div class="row">
+        <div class="row-fluid">
             <div class="span12 submit-buttons">
                 <input type="submit" class="btn btn-primary" name="submit" value="Create Project" /> 
                 <a class="btn" href="./">Cancel</a>
