@@ -169,8 +169,6 @@ function createAccount()
     
 }
 
-
-
 function uploadHandlerFromExt()
 {
 	global $log;
