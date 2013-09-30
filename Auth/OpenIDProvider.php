@@ -8,11 +8,9 @@
 		public $data = array();
 		
 		public function __construct($url)
-		{
-			global $SITE_ROOT;
+		{	
+			$this->openid = new LightOpenID(str_replace('http://' . $_SERVER['HTTP_HOST'], '', $url));
 			
-			$this->openid = new LightOpenID("$SITE_ROOT/loginCallback");
-			$this->openid->identity = array_key_exists("openid", $_SESSION) ? $_SESSION["openid"] : "";
 			$this->openid->required = array('namePerson/first', 'namePerson/last', 'contact/email', 'contact/country/home', 'pref/language');
 		}
 		
@@ -24,6 +22,8 @@
 		{
 			/*if(!$this->openid->mode)
 			{*/
+			
+				$this->openid->identity = C::array_get_val_if_exists($_SESSION, 'openid');
 				if(!$this->openid->identity)$this->openid->identity = 'https://www.google.com/accounts/o8/id';
 				
 				header('Location: ' . $this->openid->authUrl());

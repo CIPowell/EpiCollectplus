@@ -3,14 +3,14 @@
 	{
 		private $db;
 		
-		public function __construct($logName)
+		public function __construct($logName, $db)
 		{
-			try{$this->db = new dbConnection();}catch(Exception $err) {$this->db = false;} 
+			$this->db = $db;
 		}
 		
 		public function close()
 		{
-			if($this->db)$this->db->__destruct();
+			//if($this->db)$this->db->__destruct();
 		}
 		
 		public function write($level, $msg)

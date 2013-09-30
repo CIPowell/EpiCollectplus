@@ -15,28 +15,30 @@
 	public $language = "en";
 	
 	private $serverManager = false;
+	private $db;
 	
 	private $openIdEnabled = true;
 	private $ldapEnabled = true;
 	private $localEnabled = true;
 	
-	function __construct()
+	function __construct( $app)
 	{
-		global $cfg;
+		$this->app = $app;
+		$this->db = $this->app->getDB();
 		
-		if(array_key_exists("use_openID", $cfg->settings["security"]))
+		if(array_key_exists("use_openID", $this->app->cfg->settings["security"]))
 		{
-			$this->openIdEnabled = $cfg->settings["security"]["use_openID"] == "true";
+			$this->openIdEnabled = $this->app->cfg->settings["security"]["use_openID"] == "true";
 		}
 
-		if(array_key_exists("use_ldap", $cfg->settings["security"]))
+		if(array_key_exists("use_ldap", $this->app->cfg->settings["security"]))
 		{
-			$this->ldapEnabled = $cfg->settings["security"]["use_ldap"] == "true";
+			$this->ldapEnabled = $this->app->cfg->settings["security"]["use_ldap"] == "true";
 		}
 		
-		if(array_key_exists("use_local", $cfg->settings["security"]))
+		if(array_key_exists("use_local", $this->app->cfg->settings["security"]))
 		{
-			$this->localEnabled = $cfg->settings["security"]["use_local"] == "true";
+			$this->localEnabled = $this->app->cfg->settings["security"]["use_local"] == "true";
 		}
 		
 		$this->providers = array();
@@ -45,7 +47,7 @@
 	  	{
 	  		try
 	  		{
-	   			$this->providers["OPENID"] = new OpenIDProvider("http://test.mlst.net/index.php");
+	   			$this->providers["OPENID"] = new OpenIDProvider($app->getURL('loginCallback'));
 	  		}
 	  		catch(Exception $err)
 	  		{
@@ -82,11 +84,10 @@
   
   	function requestlogin($requestedUrl, $provider = "")
   	{
-  		global $cfg, $hasManagers, $SITE_ROOT;
   		
   		$provider = strtoupper($provider);
   		
-  		$_SESSION["url"] = "http://{$_SERVER['HTTP_HOST']}{$SITE_ROOT}/" . trim($requestedUrl, '/');
+  		$_SESSION["url"] = $requestedUrl;
   		
   		
   		if(($provider != "" && $provider != "LOCAL" && array_key_exists($provider, $this->providers)) || count($this->providers) == 1)
@@ -97,19 +98,18 @@
   				$provider = $keys[0];
   				$_SESSION['provider'] = $provider;
   			}
-  			return $this->providers[$provider]->requestLogin("http://{$_SERVER['HTTP_HOST']}{$SITE_ROOT}/" . trim($requestedUrl, '/'), !$hasManagers);
+  			return $this->providers[$provider]->requestLogin($requestedUrl, !$this->app->hasManagers);
   		}
   		else
   		{
-  			global $url, $SITE_ROOT;
   			$server = trim($_SERVER["HTTP_HOST"], "/");
-  			$root = trim($SITE_ROOT, "/");
+  			$root = trim($this->app->site_root, "/");
   			$frm =  "<p>Please Choose a Method to login</p>";
-  			if($this->localEnabled)$frm .= "<div class=\"provider epicollect\"><h3>EpiCollect Account</h3>" .  $this->providers["LOCAL"]->requestLogin("http://{$_SERVER['HTTP_HOST']}{$SITE_ROOT}/" . trim($requestedUrl, '/'), !$hasManagers) . "</div>";
-  			if($this->openIdEnabled) $frm .= "<div class=\"provider google\"><h3>Google/Gmail</h3><a class=\"btn\" href=\"http://$server/$root/$url?provider=OPENID\">Google/Gmail account (OpenID)</a></div>";
-			if($this->ldapEnabled && array_key_exists("ldap_domain", $cfg->settings["security"]) && $cfg->settings["security"]["ldap_domain"] != "")
+  			if($this->localEnabled) $frm .= "<div class=\"provider epicollect\"><h3>EpiCollect Account</h3>" .  $this->providers["LOCAL"]->requestLogin("http://{$_SERVER['HTTP_HOST']}{$this->app->site_root}/" . trim($requestedUrl, '/'), !$this->app->hasManagers) . "</div>";
+  			if($this->openIdEnabled) $frm .= "<div class=\"provider google\"><h3>Google/Gmail</h3><a class=\"btn\" href=\"" . $this->app->getURL($this->app->url) . "?provider=OPENID\">Google/Gmail account (OpenID)</a></div>";
+			if($this->ldapEnabled && array_key_exists("ldap_domain", $this->app->cfg->settings["security"]) && $this->app->cfg->settings["security"]["ldap_domain"] != "")
 			{
-					$frm .= "<a class=\"provider\" href=\"http://$server/$root/$url?provider=LDAP\">Windows Account ({$cfg->settings["security"]["ldap_domain"]})</a>";
+					$frm .= "<a class=\"provider\" href=\"http://$server/$root/$url?provider=LDAP\">Windows Account ({$this->app->cfg->settings["security"]["ldap_domain"]})</a>";
 			}
 			return $frm;
   		}
@@ -117,14 +117,12 @@
   	}
   	
   	function setEnabled($uid, $enabled)
-  	{
-  		global $db;
-  		
+  	{  		
   		$enabled = $enabled ? "1" : "0";
   		if($uid != $this->getEcUserId())
   		{
   			$qry = "UPDATE user SET active = $enabled where idUsers = $uid";
-  			return $db->do_query($qry);
+  			return $this->db->do_query($qry);
   		}
   		return false;
   	}
@@ -156,12 +154,10 @@
   	}
   
   	function callback($provider = "")
-  	{
-  		global  $cfg, $db, $SITE_ROOT, $url;
-                
+  	{                
   		if( $this->isLoggedIn() ) 
   		{
-  			header("location: http://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/{$_SESSION["url"]}"); return;
+  			$this->app->redirect($_SESSION['url']); return;
   		}
   		
   		if(!array_key_exists($provider, $this->providers)) {
@@ -187,9 +183,9 @@
 	  			$this->language = $this->providers[$provider]->language;
   			}
   			
-  			$res = $db->do_query($sql);
+  			$res = $this->db->do_query($sql);
   			if($res !== true) die($res . "\n" . $sql);
-  			while($arr = $db->get_row_array())
+  			while($arr = $this->db->get_row_array())
   			{
   		
   				if($arr["active"])
@@ -206,25 +202,24 @@
   			if($provider != "LOCAL" && !$uid)
   			{
   				$sql = "INSERT INTO user (FirstName, LastName, Email, details, language, serverManager) VALUES ('{$this->firstName}','{$this->lastName}','{$this->email}','" . $this->providers[$provider]->getCredentialString() . "','{$this->language}', " . (count($this->getServerManagers()) == 0 ?  "1" : "0") . ")";
-  				$res = $db->do_query($sql);
+  				$res = $this->db->do_query($sql);
   				if($res !== true) die($res);
-  				$uid = $db->last_id();
+  				$uid = $this->db->last_id();
   				if(!$uid) die("user creation failed $sql");
   			}
   			
   			$dat = new DateTime();
-  			$dat = $dat->add(new DateInterval("PT{$cfg->settings["security"]["session_length"]}S"));
+  			$dat = $dat->add(new DateInterval("PT{$this->app->cfg->settings["security"]["session_length"]}S"));
   			$sql = "INSERT INTO ecsession (id, user, expires) VALUES ('" . session_id() . "', $uid, " . $dat->getTimestamp() . ");";
   			
-  			$res = $db->do_query($sql);
+  			$res = $this->db->do_query($sql);
   			if($res !== true && !preg_match("/Duplicate Key/i", $res)) die($res . "\n" . $sql);
   
   			header("location: {$_SESSION["url"]}");
-  			return;
   		}
   		else
   		{
-  			flash("Login failed, please try again");
+  			EpiCollectWebApp::flash("Login failed, please try again");
   			if(!array_key_exists("tries", $_SESSION))
   			{
   				$_SESSION["tries"] = 1;
@@ -234,18 +229,16 @@
   				if($_SESSION["tries"] < 6) $_SESSION["tries"]++;
   			}
   			//sleep($_SESSION["tries"] * $_SESSION["tries"]);
-  			global $SITE_ROOT;
-  			header("location: http://{$_SERVER["HTTP_HOST"]}{$SITE_ROOT}/login.php");
+  			$this->app->redirectTo('login.php');
   		}
   	}
   	
   	function logout($provider = "")
   	{
   		//if(!array_key_exists($provider, $this->providers)) return false;
-  		global $db;
-  		if(!$db) $db = new dbConnection();
+  		if(!$this->db) $this->app->db= new dbConnection();
   		  		
-  		$res = $db->do_query("DELETE FROM ecsession WHERE id = '" . session_id() . "'");
+  		$res = $this->db->do_query("DELETE FROM ecsession WHERE id = '" . session_id() . "'");
   		if(!$res) die("$res - $sql");
   		$_SESSION['provider'] = null;
   		$params = session_get_cookie_params();
@@ -259,40 +252,28 @@
   
   	function isLoggedIn()
   	{
-  		global $db;
-  		if(!$db)
-  		{
-  			try 
-  			{
-  				$db = new dbConnection();
-  			}
-  			catch(Exception $e)
-  			{
-  				return false;
-  			}	
-  		}
   		
-  		if(!$db->connected) return false;
+  		if(!$this->db->connected) return false;
   		$dat = new DateTime();
   		$qry = "DELETE FROM ecsession WHERE expires < ". $dat->getTimestamp();
   		 		
-  		$res = $db->do_query($qry);
+  		$res = $this->db->do_query($qry);
   		if($res !== true) return false;
   		
   		$this->user = false;
   		
   		$qry = "select user, firstName, lastName, email, serverManager from ecsession left join user on ecsession.user = user.idUsers WHERE ecsession.id = '" . session_id() ."'"; 
-  		$res = $db->do_query($qry);
+  		$res = $this->db->do_query($qry);
   		if($res !== true) die($res . "\n" . $qry);
   		
-  		while ($arr = $db->get_row_array()){ 
+  		while ($arr = $this->db->get_row_array()){ 
   			$this->user = $arr["user"]; 
   			$this->firstName = $arr["firstName"];
   			$this->lastName = $arr["lastName"];
   			$this->email = $arr["email"];
   			$this->serverManager = $arr["serverManager"];
   		}
-		$db->free_result();
+		$this->db->free_result();
    		return $this->user !== false;
   	}
   
@@ -303,11 +284,10 @@
   	
   	function makeServerManager($email)
   	{
-  		global $db;
   		$qry = "select serverManager from user WHERE email = '$email'";
-  		$res = $db->do_query($qry);
+  		$res = $this->db->do_query($qry);
   		$r=0;$u=0;
-  		while ($arr = $db->get_row_array())
+  		while ($arr = $this->db->get_row_array())
   		{
   			$u++;
   			$r += $arr["serverManager"];
@@ -317,34 +297,32 @@
   		if($r > 0) return -1;
   		
   		$qry = "UPDATE user SET serverManager = 1 WHERE email = '$email'";
-  		if($db->do_query($qry) !== true) die("oops"); 
+  		if($this->db->do_query($qry) !== true) die("oops"); 
   		return 1;
   	}
   	
   	function removeServerManager($email)
   	{
-  		global $db;
   		$qry = "UPDATE user SET serverManager = 0 WHERE email = '$email'";
-  		if($db->do_query($qry) !== true) die("oops");
+  		if($this->db->do_query($qry) !== true) die("oops");
   	}
   	
   	function getServerManagers()
   	{
-  		global $db;
   		try{
   		
   			$men = array();
-  			if($db)
+  			if($this->db)
   			{
 		  		$qry = "SELECT firstName, lastName, Email FROM user WHERE serverManager = 1 and active = 1";
-		  		$res = $db->do_query($qry);
-		  		if($res !== true) throw new Exception(sprintf('MySQL error :  %s last successful query was %s',$res, $db->lastQuery));
+		  		$res = $this->db->do_query($qry);
+		  		if($res !== true) throw new Exception(sprintf('MySQL error :  %s last successful query was %s',$res, $this->db->lastQuery));
 				
-		  		while($arr = $db->get_row_array())
+		  		while($arr = $this->db->get_row_array())
 		  		{
 		  			array_push($men, $arr);
 		  		}
-		  		$db->free_result();
+		  		$this->db->free_result();
   			}
   			//
 	  		return $men;
@@ -357,12 +335,11 @@
   	
   	private function populateSesssionInfo()
   	{
-	   $db = new dbConnection();
 	   $qry = "SELECT idUsers as userId, FirstName, LastName, Email, language FROM user WHERE openId = '{$_SESSION['openid']}'";
-	   $err = $db->do_query($qry);
+	   $err = $this->db->do_query($qry);
 	   if($err === true)
 	   {
-			if($arr = $db->get_row_array())
+			if($arr = $this->db->get_row_array())
 			{
 	 			foreach(array_keys($arr) as $key)
 	 			{
@@ -374,7 +351,6 @@
 	  
 	  function createUser($username, $pass, $email, $firstName, $lastName, $language)
 	  {
-	  	global $hasManagers;
 	  	if($this->localEnabled)
 	  	{
 	  	 	$res =  $this->providers["LOCAL"]->createUser($username, $pass, $email, $firstName, $lastName, $language, !$hasManagers);
@@ -397,9 +373,8 @@
 	  
 	  function getUsers($order = "FirstName", $dir = "asc")
 	  {
-                    global $db, $log;
                     $query = "SELECT idUsers as userId, FirstName, LastName, Email, active FROM user ORDER BY $order $dir";
-                    $res = $db->do_query($query);
+                    $res = $this->db->do_query($query);
                     if(!$res === true)
                     {
                             $log->write("err", $res);
@@ -408,7 +383,7 @@
                     else
                     {
                             $ret = array();
-                            while($arr = $db->get_row_array())
+                            while($arr = $this->db->get_row_array())
                             {
                                     array_push($ret, $arr);
                             }

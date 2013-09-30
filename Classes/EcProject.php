@@ -48,9 +48,8 @@ class EcProject{
 			);
 		}
 		
-		public function fetch()
+		public function fetch($db)
 		{
-			$db = new dbConnection();
 			if($this->name != "")
 			{
 				//$res = $db->exec_sp("getProject", array($this->name));
@@ -67,8 +66,6 @@ class EcProject{
 					$this->allowDownloadEdits = true;
 				}
 				
-				$db = new dbConnection();
-				//get forms	
 				$res = $db->exec_sp("getForms", array($this->name));
 				
 				if($res === true)
@@ -81,7 +78,7 @@ class EcProject{
 						$frm->fromArray($arr);
 						//get fields
 						
-						$frm->fetch();
+						$frm->fetch($db);
 						//get options
 						if($frm->number > 0) $this->tables[$frm->name] = $frm;
 						
@@ -102,9 +99,8 @@ class EcProject{
 			}		
 		}
 		
-		public function parse($xml, $edit=false)
+		public function parse($xml, $edit=false, $XML_VERSION)
 		{
-			global $XML_VERSION;
 
 			$root = simplexml_load_string($xml);
 			
@@ -280,10 +276,8 @@ class EcProject{
 			
 		}
 		
-		public function getLastUpdated()
+		public function getLastUpdated($db)
 		{
-			//$db = new dbConnection();
-			global $db;
 			$sql = "SELECT max(uploaded) as Uploaded, max(lastEdited) as Edited, count(1) as ttl from entry WHERE projectName = '{$this->name}'";
 			$res = $db->do_query($sql);
 			
@@ -310,9 +304,8 @@ class EcProject{
 			return $dat->getTimestamp() . $arr["ttl"];
 		}
 		
-		public function checkPermission($uid)
+		public function checkPermission($uid, $db, $auth)
 		{
-		 	global $db, $auth;
 		 	
 		 	if($auth->isServerManager()) return 3;
 		
@@ -361,11 +354,9 @@ class EcProject{
 			return $tbl;
 		}
 		
-		private function getPermission ($lvl)
+		private function getPermission ($lvl, $db, $auth)
 		{	
 			if(!is_numeric($this->id) || strstr($this->id, ".")) return "ID {$this->id} is not properly set";
-			
-			global $auth;
 			
 			$db = new dbConnection();
 			
@@ -414,16 +405,14 @@ class EcProject{
 			return $tbl;
 		}
 		
-		private function setPermission ($emails, $lvl)
+		private function setPermission ($emails, $lvl, $db, $auth)
 		{
 			if(trim($emails) == '') return true;		
 			if(!preg_match('/([a-z0-9\._%+-]+@[a-z0-9\.-]+\.[a-z]{2,4}\,?)+$/i',$emails)) return "invalid email $emails";
 			if(!is_numeric($this->id) || strstr($this->id, ".")) return "ID {$this->id} is not properly set";
 			
-			global $auth;
 			$emails = rtrim(strtolower($emails), ","); //as emails are case insensitive we will make them all lowercase to make comparison easier
 			
-			$db = new dbConnection();
 			if($this->checkPermission($auth->getEcUserId()) == 3)
 			{
 					//add any new emails
@@ -437,7 +426,6 @@ class EcProject{
 					$res = $db->do_query($sql);
 					if($res===true)
 					{
-							$db = new dbConnection();
 							$emails = str_replace(",", "','", $emails);
 							$sql = "INSERT INTO userprojectpermission (user, project, role) SELECT idUsers, {$this->id}, $lvl From user where email in ('{$emails}')";
 							$res = $db->do_query($sql);
@@ -451,33 +439,33 @@ class EcProject{
 			}
 		}
 		
-		public function setManagers($emails)
+		public function setManagers($emails, $db, $auth)
 		{
-				return $this->setPermission($emails, 3);
+				return $this->setPermission($emails, 3, $db, $auth);
 		}
 		
-		public function setCurators($emails)
+		public function setCurators($emails, $db, $auth)
 		{
-				return $this->setPermission($emails, 2);
+				return $this->setPermission($emails, 2, $db, $auth);
 		}
 		
-		public function setSubmitters($emails)
+		public function setSubmitters($emails, $db, $auth)
 		{
-				return $this->setPermission($emails, 1);
+				return $this->setPermission($emails, 1, $db, $auth);
 		}
-		public function getManagers()
+		public function getManagers($db, $auth)
 		{
-				return $this->getPermission(3);
-		}
-		
-		public function getCurators()
-		{
-				return $this->getPermission(2);
+				return $this->getPermission(3, $db, $auth);
 		}
 		
-		public function getSubmitters()
+		public function getCurators($db, $auth)
 		{
-				return $this->getPermission(1);
+				return $this->getPermission(2, $db, $auth);
+		}
+		
+		public function getSubmitters($db, $auth)
+		{
+				return $this->getPermission(1, $db, $auth);
 		}
 
     /**
@@ -485,10 +473,8 @@ class EcProject{
      *
      * @return bool|string
      */
-    public function post()
+    public function post($db, $auth)
 		{
-			global $auth;
-			$db=new dbConnection();
 
 			if( $this->submission_id == '' ) $this->submission_id = str_replace($this->name, ' ', '_');
 			
@@ -502,7 +488,7 @@ class EcProject{
 			$res = $db->do_query("INSERT INTO project(name, submission_id, description, image, isPublic, isListed, publicSubmission, uploadToLocalServer, downloadFromLocalServer) VALUES ('{$this->name}', '{$sub_id}', '{$this->description}', '{$this->image}', " . ($this->isPublic ? "1" : "0") . ", " . ($this->isListed ? "1" : "0") . ", " . ($this->publicSubmission ? "1" : "0") . ", '{$this->uploadToLocalServer}', '{$this->downloadFromLocalServer}')");
 			if( $res === true )
 			{
-				$this->fetch();
+				$this->fetch($db);
 				foreach($this->tables as $tbl)
 				{
 					$r = $tbl->addToDb();
@@ -527,9 +513,9 @@ class EcProject{
      * @param $oldName -> The old project name if the project is being renamed (Deprecated)
      * @return bool|string
      */
-    public function put($oldName)
+    public function put($oldName, $db, $auth, $log)
 		{
-			global $auth, $log, $db;
+		
 			//$log = new Logger('Ec2');
 			$log->write('info', 'Starting project update');
 			
@@ -599,20 +585,16 @@ class EcProject{
 			}
 		}
 		
-		function deleteProject()
+		function deleteProject($db)
 		{
-			global $db;
 			$qry = sprintf('CALL deleteProject(\'%s\')',$this->name);
 			return $db->do_query($qry);
 		}
 		
-		function getSummary()
-		{
-				global $auth;
-				
+		function getSummary($db, $auth)
+		{				
 				if(!$this->isPublic && $this->checkPermission($auth->getEcUserId()) < 2) return "You do not have permission to view this data";
 				
-				$db = new dbConnection();
 				$qry = "SELECT f.idForm, f.Name, count(e.idEntry) as entries, count(distinct e.user) as users, count(distinct deviceId) as devices from form f Left JOIN entry e on e.form = f.idForm where f.projectName = '{$this->name}' group by f.idForm, f.Name";
 				$res = $db->do_query($qry);
 				
@@ -693,12 +675,11 @@ class EcProject{
 				return $sql;
 		}
 		
-		public function toXML()
+		public function toXML($SITE_ROOT, $VERSION)
 		{
-				global $SITE_ROOT, $XML_VERSION;
 		
 				$protocol = 'http';
-				if (getValIfExists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
+				if (C::array_get_val_if_exists($_SERVER, "HTTPS")== 'on'){$protocol = 'https';}
 				
 				$xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n
 <ecml version=\"$XML_VERSION\">
@@ -742,9 +723,9 @@ class EcProject{
 				return $res;
 		}
 		
-		public static function getPublicProjects()
+		public static function getPublicProjects($db)
 		{
-			global $db;
+		
 				
 			$qry = 'SELECT p.name as name, p.ttl as ttl, p.ttl24 as ttl24 FROM (SELECT id,name, count(entry.idEntry) as ttl, x.ttl as ttl24 FROM project left join entry on project.name = entry.projectName left join (select count(idEntry) as ttl, projectName from entry where created > ((UNIX_TIMESTAMP() - 86400)*1000) group by projectName) x on project.name = x.projectName WHERE project.isListed = 1 group by project.name) p order by p.name asc';
 			$res = $db->do_query($qry);
@@ -769,9 +750,8 @@ class EcProject{
 			return $projects;
 		}
 		
-		public static function getUserProjects($uid, $fmt = 'json', $nodups = false)
+		public static function getUserProjects($uid, $fmt = 'json', $nodups = false, $db)
 		{
-			global $db;
 			
 			$qry = sprintf('SELECT p.name as name, p.ttl as ttl, p.ttl24 as ttl24, p.isListed as listed FROM (SELECT id,name, count(entry.idEntry) as ttl, x.ttl as ttl24, isListed FROM project left join entry on project.name = entry.projectName left join (select count(idEntry) as ttl, projectName from entry where created > ((UNIX_TIMESTAMP() - 86400)*1000) group by projectName) x on project.name = x.projectName group by project.name) p join userprojectpermission upp on p.id = upp.project WHERE upp.user = %s order by p.name asc', $uid);
 			$res = $db->do_query($qry);
@@ -799,10 +779,8 @@ class EcProject{
 			return $projects;
 		}
 		
-		public static function projectExists($name)
+		public static function projectExists($name, $db)
 		{
-			global $db;
-			
 			$qry = sprintf('SELECT * FROM project WHERE name=\'%s\'', $name);
 			$res = $db->do_query($qry);
 			if($res !== true) return false;

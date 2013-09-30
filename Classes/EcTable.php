@@ -134,10 +134,8 @@
 			return $ent;
 		}
 		
-		public function fetch()
+		public function fetch($db)
 		{
-			$db = new dbConnection();
-			//global $db;
 			$this->titleFields = array();
 			$qry = "SELECT * from form WHERE";
 			if(is_numeric($this->id))
