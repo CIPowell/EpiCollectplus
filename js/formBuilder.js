@@ -718,7 +718,7 @@ function newForm(message, name, closeable)
             {
                 var frm = new EpiCollect.Form();
                 frm.name = name;
-                frm.num = $('.form').length + 1;
+                frm.num = Object.keys(project.forms).length + 1;
                 project.forms[name] = frm;
 
                 formList.addForm(name);
@@ -1515,6 +1515,21 @@ function previewForm(name)
 	project.forms[name].displayForm({ debug : true });
 }
 
+function renumber(number_removed)
+{
+    for( var frm in project.forms )
+    {
+        if ( project.forms[frm].num == number_removed )
+        {
+            project.forms[frm].num = -1;
+        }
+        else if ( project.forms[frm].num > number_removed )
+        {
+            project.forms[frm].num = project.forms[frm].num - 1;
+        }   
+    }
+}
+
 function removeForm(name)
 {
     if(project.getNextForm(name))
@@ -1527,10 +1542,9 @@ function removeForm(name)
 	{
 		currentForm = false;
 		$('#' + name, $("#formList")).remove();
-		project.forms[name].num = -1;
-		
+		renumber(project.forms[name].num);
         
-		for( frm in project.forms )
+		for( var frm in project.forms )
 		{
 			if( !currentForm ) switchToForm(frm); // switch to the first form
             break;
@@ -1543,14 +1557,13 @@ function removeForm(name)
 }
 
 /**
- * Remove the currently selected form
+ * Remove the currently selected field
  */
 function removeSelected()
 {
 	var jq = $("#destination .selected");
 	
 	if(currentControl.isKey){
-		currentForm.key = null;
 		askForKey(true);
 	}
 	
@@ -1705,17 +1718,21 @@ function askForKey(keyDeleted)
 {
 	var default_name = currentForm.name + "_key";
 	var frm = currentForm;
-	
-        var possibleFields = '';
-        
-        for (var f in frm.fields)
+	var oldKey = null;
+    if(keyDeleted) { oldKey = currentForm.key;  }
+    
+    currentForm.key = null;
+    
+    var possibleFields = '';
+
+    for (var f in frm.fields)
+    {
+        var fld = frm.fields[f];
+        if(fld.type == 'input' && !(fld.date || fld.setDate || fld.time || fld.setTime || fld.isKey))
         {
-            var fld = frm.fields[f];
-            if(fld.type == 'input' && !(fld.date || fld.setDate || fld.time || fld.setTime || fld.isKey))
-            {
-                possibleFields += '<option value="' + fld.id + '">' + fld.text + '</option>'; 
-            }
+            possibleFields += '<option value="' + fld.id + '">' + fld.text + '</option>'; 
         }
+    }
         
 	EpiCollect.prompt({
 		title : "Add a key field",
@@ -1791,6 +1808,34 @@ function askForKey(keyDeleted)
                     if( vals.key !== 'change' ) addControlToForm(new_field.id, new_field.text, vals.key_type);
                     currentForm.key = key_id;		
                     setSelected($('#' + key_id));
+                    if(keyDeleted)
+                    {
+                        for( var frm in project.forms )
+                        {
+                            if( frm.num > currentForm.num && frm.fields[oldKey] )
+                            {
+                                var childkey_field = frm.fields[oldKey];
+                                childkey_field.name = key_id;
+                                childkey_field.label = new_field.label;
+                                
+                                var newfields = {};
+                                for ( var fld in frm.fields )
+                                {
+                                    if( fld == oldKey )
+                                    {
+                                        newfields[key_id] = childkey_field;
+                                    }
+                                    else
+                                    {
+                                        newfields[fld] = frm.fields[fld];   
+                                    }
+                                }   
+                                frm.fields = newfields;
+                                
+                            }   
+                        }
+                    }
+                    
                     $( this ).dialog("close");
                 }
                 else
