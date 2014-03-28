@@ -1036,7 +1036,7 @@ function validateControl(ctrl, _type, callback)
 	
 	if(_type && _type.match(/^select1?|radio$/))
 	{
-		if(ctrl.options.lenghth == 0){ messages.push({ form: ctrl.form.name,  control : ctrl.id, message : "Multiple choice question does not have any options" }); }
+		if(ctrl.options.length === 0){ messages.push({ form: ctrl.form.name,  control : ctrl.id, message : "Drop-downs, Radio Buttons and Check box groups must have at least one option." }); }
 		
 		var optvals = [];
 		
@@ -1058,8 +1058,7 @@ function validateControl(ctrl, _type, callback)
 	
 	//Validate Options
 	
-	
-	
+
 	if(ctrl.jump && ctrl.jump !== '')
 	{
 		var jump_def = ctrl.jump.split(',');
