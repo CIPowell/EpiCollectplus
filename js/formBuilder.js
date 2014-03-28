@@ -566,12 +566,12 @@ var propertiesForm;
 $(function()
 {
 	var url = location.href;
+
         
 	EpiCollect.loadProject(url.substr(0, url.lastIndexOf("/")) + ".xml", drawProject);
 
 	var details_top = $("#details").offset().top;
-	
-   
+
     $(document.body).unload(function(){
         if($('.unsaved').length > 0)
         {
@@ -681,7 +681,9 @@ function drawProject(prj)
    formList = new FormList('formList');
    for(var frm in project.forms)
 	{
-	   formList.addForm(frm);
+        if(project.forms[frm].main){
+	       formList.addForm(frm);
+        }
 	}
    
 	   if(formList.forms.length === 0)
@@ -696,7 +698,51 @@ function drawProject(prj)
 }
 
 /**
- * 
+ *  Create a new form called {name}
+ * @param name (String);
+ */
+function createForm(name, is_main)
+{
+    if(is_main === undefined){ is_main = true ; } // default is_main to true;
+
+    var frm = new EpiCollect.Form();
+    frm.name = name;
+    frm.num = Object.keys(project.forms).length + 1;
+    frm.main = is_main;
+
+    project.forms[name] = frm;
+
+    formList.addForm(name);
+
+    // add the parent key to the form
+    addParentKey(frm);
+
+    switchToForm(name);
+}
+
+/**
+ * Add the parent key to the form
+ * @param form and EpiCollect.Form to add the key to
+ */
+function addParentKey(form)
+{
+    var par = project.getPrevForm(form.name);
+
+    //Add parent key
+    if(par && form.main)
+    {
+        form.fields[par.key] = new EpiCollect.Field();
+        form.fields[par.key].id = par.key;
+        form.fields[par.key].text = par.fields[par.key].text;
+        form.fields[par.key].isKey = false;
+        form.fields[par.key].title = false;
+        form.fields[par.key].type = 'input';
+        form.fields[par.key].form = form;
+    }
+}
+
+/**
+ * Prompt the user to
  * @param message
  * @param name
  */
@@ -716,27 +762,7 @@ function newForm(message, name, closeable)
             
             if(name !== '' && valid_name === true)
             {
-                var frm = new EpiCollect.Form();
-                frm.name = name;
-                frm.num = Object.keys(project.forms).length + 1;
-                project.forms[name] = frm;
-
-                formList.addForm(name);
-
-                var par = project.getPrevForm(name);
-
-                if(par && frm.main)
-                {
-                        frm.fields[par.key] = new EpiCollect.Field();
-                        frm.fields[par.key].id = par.key;
-                        frm.fields[par.key].text = par.fields[par.key].text;
-                        frm.fields[par.key].isKey = false;
-                        frm.fields[par.key].title = false;
-                        frm.fields[par.key].type = 'input';
-                        frm.fields[par.key].form = frm;
-                }
-
-                switchToForm(name);
+               createForm(name);
             }
             else if(name)
             {
@@ -1532,7 +1558,7 @@ function renumber(number_removed)
 
 function removeForm(name)
 {
-    if(project.getNextForm(name))
+    if(project.getNextForm(name, true))
     {    
         EpiCollect.dialog({ content : "You can only delete the last form in the project." });
         return;
@@ -1562,12 +1588,19 @@ function removeForm(name)
 function removeSelected()
 {
 	var jq = $("#destination .selected");
-	
+	var fieldName = jq.prop("id")
+
 	if(currentControl.isKey){
 		askForKey(true);
 	}
 	
-	delete currentForm.fields[jq.prop("id")];
+    if(currentForm.field[fieldName].type == 'branch')
+    {
+        removeForm(currentForm.field[fieldName].connectedForm);
+    }
+
+
+	delete currentForm.fields[fieldName];
 	jq.remove();
 	unselect();
 	
@@ -1620,6 +1653,14 @@ function renameForm(name)
 	}});
 }
 
+function saveCurrentForm()
+{
+    if(currentForm){
+		updateForm();
+		project.forms[currentForm.name] = currentForm;
+	}
+}
+
 function switchToBranch()
 {
 	//var ctrlname = $('destination .selected').attr('id')
@@ -1635,23 +1676,19 @@ function switchToBranch()
 		frm = currentControl.id + "_form";
 		currentControl.connectedForm = frm;
 	}
-	
-	if(currentForm){
-		updateForm();
-		project.forms[currentForm.name] = currentForm;
-	}
+	//TODO: collapse into function : save currentform
+	saveCurrentForm();
 	
 	
-	if(!project.forms[frm])
+	if(!project.forms[frm]) // if form doesn't exist
 	{
-		project.forms[frm] = new EpiCollect.Form();
-		project.forms[frm].num = Object.keys(project.forms).length + 1; // Form numbering is 1-indexed not 0-indexed
-		project.forms[frm].name = frm;
+		createForm(frm, false);
 		
 		var key = currentForm.key;
 		var fklabel = currentForm.fields[currentForm.key].text;
 		var flds = project.forms[frm].fields;
 		
+        // Add foreign key
 		flds[key] = new EpiCollect.Field();
 		flds[key].id = key;
 		flds[key].isKey = false;
@@ -1660,16 +1697,12 @@ function switchToBranch()
 		flds[key].text = fklabel;
 		flds[key].form = project.forms[frm];
         
-        currentForm = project.forms[frm];
-        currentForm.main = false;
+        project.form[frm].fields = flds;
+
         askForKey(false);
 	}
-    else
-    {
-         currentForm = project.forms[frm];
-	}
-	formName = currentForm.name;
-	drawFormControls(currentForm);
+
+	switchToForm(frm);
     
     $('#source .ecplus-branch-element').hide();
     $('#source .ecplus-fk-element').hide();
@@ -1678,10 +1711,7 @@ function switchToBranch()
 function switchToForm(name)
 {
 	
-	if(currentForm){
-		updateForm();
-		project.forms[currentForm.name] = currentForm;
-	}
+	saveCurrentForm();
 	
 	$("#parent").empty();
 	for(frm in project.forms)
@@ -1717,7 +1747,7 @@ function switchToForm(name)
 function askForKey(keyDeleted)
 {
 	var default_name = currentForm.name + "_key";
-	var frm = currentForm;
+	var cfrm = currentForm;
 	var oldKey = null;
     if(keyDeleted) { oldKey = currentForm.key;  }
     
@@ -1725,9 +1755,9 @@ function askForKey(keyDeleted)
     
     var possibleFields = '';
 
-    for (var f in frm.fields)
+    for (var f in cfrm.fields)
     {
-        var fld = frm.fields[f];
+        var fld = cfrm.fields[f];
         if(fld.type == 'input' && !(fld.date || fld.setDate || fld.time || fld.setTime || fld.isKey))
         {
             possibleFields += '<option value="' + fld.id + '">' + fld.text + '</option>'; 
@@ -1777,7 +1807,7 @@ function askForKey(keyDeleted)
                     new_field.id = vals.key_name;
                     new_field.text =  vals.key_label;
                     new_field.type = vals.key_type === 'barcode' ? 'barcode' : 'input';
-                    new_field.form = frm;
+                    new_field.form = cfrm;
                     new_field.isinteger = (vals.key_type === 'numeric');
                     new_field.genkey = false;
                     
@@ -1788,7 +1818,7 @@ function askForKey(keyDeleted)
                     new_field.id = key_id;
                     new_field.text = 'Unique ID';
                     new_field.type = 'input';
-                    new_field.form = currentForm;
+                    new_field.form = cfrm;
                     new_field.isinteger = false;
                     new_field.genkey = true;
                     vals.key_type = 'text';
@@ -1801,7 +1831,7 @@ function askForKey(keyDeleted)
                 
                 currentForm.fields[key_id] = new_field;
                 
-                var fieldNameValid = project.validateFieldName(frm, new_field, undefined, true);
+                var fieldNameValid = project.validateFieldName(cfrm, new_field, undefined, true);
                 
                 if(vals.key !== "yes" || (fieldNameValid === true && vals.key_label !== '' && vals.key_type !== ''))
                 {

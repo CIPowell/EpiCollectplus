@@ -797,13 +797,19 @@ EpiCollect.Project = function()
     this.map;
 	this.description = "";
 	
-	this.getNextForm = function(name)
+	this.getNextForm = function(name, mainOnly)
 	{
 		var n = Number(this.forms[name].num) + 1;
-		var tbl = false;
+		var tbl = undefined;
 
 		for(var t in this.forms)
 		{
+            if(mainOnly && this.forms[t].main === false)
+            {
+                n++;
+                continue;
+            }
+
 			if(Number(this.forms[t].num) === n)
 			{
 				tbl = this.forms[t];
