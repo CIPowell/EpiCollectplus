@@ -872,7 +872,7 @@ EpiCollect.Project = function()
         	for (var frm in this.forms)
 	        {
 	        	if(frm == form.name) continue;
-	        	console.debug(frm, this.forms[frm].key, name);
+
 	        	if(this.forms[frm].key.match(new RegExp(name, 'i')))
 	        	{
 	        		return '<em>' + name + '</em> is not a valid ID. The form ' + frm  +' has a key called ' + name;

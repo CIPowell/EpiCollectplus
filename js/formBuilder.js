@@ -719,7 +719,7 @@ function createForm(name, is_main)
     // add the parent key to the form
     addParentKey(frm);
 
-    switchToForm(name);
+
 }
 
 /**
@@ -764,7 +764,8 @@ function newForm(message, name, closeable)
             
             if(name !== '' && valid_name === true)
             {
-               createForm(name);
+                createForm(name);
+                switchToForm(name);
             }
             else if(name)
             {
@@ -1683,12 +1684,12 @@ function switchToBranch()
 	saveCurrentForm();
 	
 	
-	if(!project.forms[frm]) // if form doesn't exist
+	if(!project.forms[frm]) // if form doesn't existx
 	{
 		createForm(frm, false);
-		
+
 		var key = currentForm.key;
-		var fklabel = currentForm.fields[currentForm.key].text;
+		var fklabel = currentForm.fields[key].text;
 		var flds = project.forms[frm].fields;
 		
         // Add foreign key
@@ -1701,11 +1702,15 @@ function switchToBranch()
 		flds[key].form = project.forms[frm];
         
         project.forms[frm].fields = flds;
-
+        switchToForm(frm);
         askForKey(false);
 	}
+    else
+    {
+        switchToForm(frm);
+    }
 
-	switchToForm(frm);
+
     
     $('#source .ecplus-branch-element').hide();
     $('#source .ecplus-fk-element').hide();
