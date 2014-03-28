@@ -712,7 +712,9 @@ function createForm(name, is_main)
 
     project.forms[name] = frm;
 
-    formList.addForm(name);
+    if(is_main) {
+        formList.addForm(name);
+    }
 
     // add the parent key to the form
     addParentKey(frm);
@@ -1594,14 +1596,15 @@ function removeSelected()
 		askForKey(true);
 	}
 	
-    if(currentForm.field[fieldName].type == 'branch')
+    if(currentForm.fields[fieldName].type == 'branch')
     {
-        removeForm(currentForm.field[fieldName].connectedForm);
+        removeForm(currentForm.fields[fieldName].connectedForm);
     }
 
-
 	delete currentForm.fields[fieldName];
-	jq.remove();
+	$('#' + fieldName).remove();
+
+    console.debug('delete');
 	unselect();
 	
 	//TODO : Neaten? MAybe have validate project attached to a "changed" event on the form?
@@ -1697,7 +1700,7 @@ function switchToBranch()
 		flds[key].text = fklabel;
 		flds[key].form = project.forms[frm];
         
-        project.form[frm].fields = flds;
+        project.forms[frm].fields = flds;
 
         askForKey(false);
 	}
@@ -1720,8 +1723,7 @@ function switchToForm(name)
 		
 		if(project.forms[frm].main) $("#parent").append("<option value=\"" + frm + "\">" + frm + " (" + project.forms[frm].key + ")</option>");
 	}
-	
-	
+
 	if(!project.forms[name]) project.forms[name] = new EpiCollect.Form();
 	currentForm = project.forms[name];
 	formName = name;
@@ -1740,6 +1742,7 @@ function switchToForm(name)
     {
          $('#source .ecplus-fk-element').hide();
     }
+
 	drawFormControls(currentForm);
     
 }
